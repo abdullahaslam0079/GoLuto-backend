@@ -22,7 +22,7 @@ class Command(BaseCommand):
         user = User.objects.filter(email=email).first()
         if user is None:
             User.objects.create_superuser(email=email, password=password)
-            self.stdout.write(self.style.SUCCESS(f"Created superuser: {email}"))
+            self._log(self.style.SUCCESS(f"Created superuser: {email}"))
             return
 
         if not user.is_staff or not user.is_superuser:
@@ -30,11 +30,19 @@ class Command(BaseCommand):
             user.is_superuser = True
             user.set_password(password)
             user.save()
-            self.stdout.write(
+            self._log(
                 self.style.SUCCESS(
                     f"Promoted existing user to superuser (was normal account): {email}"
                 )
             )
             return
 
-        self.stdout.write(f"Superuser already exists: {email}")
+        # Superuser already exists: still apply ADMIN_PASSWORD so login matches env
+        # after password changes or a bad prior hash.
+        user.set_password(password)
+        user.save(update_fields=["password"])
+        self._log(self.style.SUCCESS(f"Synced password for superuser: {email}"))
+
+    def _log(self, message: str) -> None:
+        # stderr shows reliably in Render runtime logs (stdout can be buffered).
+        self.stderr.write(message + "\n")

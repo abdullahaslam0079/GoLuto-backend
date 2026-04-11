@@ -54,6 +54,12 @@ If that email was already used for a normal signup via the API, the command **pr
 
 Locally you can always run: `python manage.py createsuperuser`
 
+**Render:** In the web service **Settings**, check **Start Command**. If it was set manually, it overrides `render.yaml` and must include:
+
+`python manage.py migrate --noinput && python manage.py ensure_superuser && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
+
+After deploy, **Logs** should mention `Created superuser`, `Promoted`, or `Synced password`. If you only see Gunicorn lines, the command above is not running.
+
 ## GitHub
 
 ```bash
