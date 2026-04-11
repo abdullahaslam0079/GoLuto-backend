@@ -29,7 +29,7 @@ python manage.py runserver
 
 1. Push this repo to GitHub (see below).
 2. In [Render](https://dashboard.render.com): **New** → **Blueprint** → connect the repo, or **Web Service** + **PostgreSQL** manually.
-3. If you use the included `render.yaml`, Render creates a **PostgreSQL** database and sets `DATABASE_URL`; the web service runs migrations (`preDeployCommand`) and starts Gunicorn.
+3. If you use the included `render.yaml`, Render creates a **PostgreSQL** database and sets `DATABASE_URL`; the web service runs migrations then Gunicorn on each start (free tier does not support `preDeployCommand`, so migrate is in `startCommand`).
 4. In the web service, set environment variables if not using Blueprint:
    - `DEBUG=False`
    - `SECRET_KEY` (long random string)
