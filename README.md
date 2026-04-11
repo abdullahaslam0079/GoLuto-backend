@@ -37,7 +37,20 @@ python manage.py runserver
    - `ALLOWED_HOSTS` optional — if unset on Render, `RENDER_EXTERNAL_HOSTNAME` is used when `RENDER` is set (see `config/settings.py`).
 
 **Build command:** `pip install -r requirements.txt && python manage.py collectstatic --noinput`  
-**Start command:** `gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
+**Start command:** `python manage.py migrate --noinput && python manage.py ensure_superuser && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
+
+### Django admin without Shell (Render free tier)
+
+Render’s **Shell** often requires a paid plan. To create an admin user, set these on the **Web Service** → **Environment** (not in git):
+
+| Variable | Example |
+|----------|---------|
+| `ADMIN_EMAIL` | `you@example.com` |
+| `ADMIN_PASSWORD` | A strong one-time password |
+
+Redeploy or restart. Then open `https://<your-service>.onrender.com/admin/` and sign in with that email and password. **Remove `ADMIN_PASSWORD` from the environment afterward** (or change the password in admin) so it is not stored in the dashboard long term.
+
+Locally you can always run: `python manage.py createsuperuser`
 
 ## GitHub
 
