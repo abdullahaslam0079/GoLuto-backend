@@ -1,0 +1,8 @@
+django>=5.0,<7
+djangorestframework
+drf-spectacular
+djangorestframework-simplejwt
+gunicorn>=22.0
+whitenoise>=6.0
+dj-database-url>=2.0
+psycopg[binary]>=3.0
