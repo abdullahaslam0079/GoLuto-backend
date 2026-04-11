@@ -48,7 +48,9 @@ Render’s **Shell** often requires a paid plan. To create an admin user, set th
 | `ADMIN_EMAIL` | `you@example.com` |
 | `ADMIN_PASSWORD` | A strong one-time password |
 
-Redeploy or restart. Then open `https://<your-service>.onrender.com/admin/` and sign in with that email and password. **Remove `ADMIN_PASSWORD` from the environment afterward** (or change the password in admin) so it is not stored in the dashboard long term.
+Redeploy or restart. Then open `https://<your-service>.onrender.com/admin/` and sign in with that email and password (type the password in the form—it is not filled from env automatically). **Remove `ADMIN_PASSWORD` from the environment afterward** (or change the password in admin) so it is not stored in the dashboard long term.
+
+If that email was already used for a normal signup via the API, the command **promotes** that account to superuser instead of skipping.
 
 Locally you can always run: `python manage.py createsuperuser`
 
