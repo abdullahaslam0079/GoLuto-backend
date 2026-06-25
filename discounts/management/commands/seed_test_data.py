@@ -1,3 +1,5 @@
+import os
+
 from datetime import timedelta
 from decimal import Decimal
 
@@ -12,6 +14,13 @@ class Command(BaseCommand):
     help = "Seed development test data for Discount Discovery API"
 
     def handle(self, *args, **options):
+        if os.environ.get("RENDER") and not os.environ.get("SEED_TEST_DATA", "").lower() in (
+            "true",
+            "1",
+            "yes",
+        ):
+            return
+
         now = timezone.now()
 
         categories = {}
@@ -87,12 +96,11 @@ class Command(BaseCommand):
         )
 
         user_model = get_user_model()
-        test_user, created = user_model.objects.get_or_create(
+        test_user, _ = user_model.objects.get_or_create(
             email="testuser@example.com",
         )
-        if created:
-            test_user.set_password("testpass123")
-            test_user.save(update_fields=["password"])
+        test_user.set_password("testpass123")
+        test_user.save(update_fields=["password"])
 
         preferences, _ = UserPreferences.objects.get_or_create(user=test_user)
         preferences.notifications_enabled = True
@@ -101,7 +109,13 @@ class Command(BaseCommand):
             [categories["Food"], categories["Fashion"]]
         )
 
-        self.stdout.write(self.style.SUCCESS("Seed data created/updated successfully."))
-        self.stdout.write(
-            "Test user -> email: testuser@example.com, password: testpass123"
+        self._log(self.style.SUCCESS("Seed data created/updated successfully."))
+        self._log("Test user -> email: testuser@example.com, password: testpass123")
+        self._log(
+            "Categories: Food, Fashion, Electronics | "
+            "Businesses: Burger Hub, Style Corner, Gadget Point | "
+            "3 sample offers (2 active, 1 expired)"
         )
+
+    def _log(self, message: str) -> None:
+        self.stderr.write(message + "\n")
