@@ -94,3 +94,25 @@ class UserPreferences(models.Model):
 
     def __str__(self) -> str:
         return f"Preferences<{self.user.email}>"
+
+
+class Address(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="addresses")
+    street = models.CharField(max_length=120)
+    house_number = models.CharField(max_length=20)
+    postal_code = models.CharField(max_length=20)
+    city = models.CharField(max_length=80)
+    county = models.CharField(max_length=80)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    is_default = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name_plural = "addresses"
+
+    @property
+    def formatted_address(self) -> str:
+        return f"{self.street} {self.house_number}, {self.postal_code} {self.city}"
+
+    def __str__(self) -> str:
+        return self.formatted_address

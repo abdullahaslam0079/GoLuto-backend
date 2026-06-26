@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm as BaseUserChangeForm
 from django.contrib.auth.forms import UserCreationForm as BaseUserCreationForm
 
-from .models import Business, Category, Offer, User, UserPreferences
+from .models import Address, Business, Category, Offer, User, UserPreferences
 
 
 class UserCreationForm(BaseUserCreationForm):
@@ -89,3 +89,17 @@ class OfferAdmin(admin.ModelAdmin):
 @admin.register(UserPreferences)
 class UserPreferencesAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "notifications_enabled")
+
+
+@admin.register(Address)
+class AddressAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "street",
+        "house_number",
+        "city",
+        "is_default",
+    )
+    list_filter = ("is_default", "city")
+    search_fields = ("user__email", "street", "city")

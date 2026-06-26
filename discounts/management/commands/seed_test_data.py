@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from discounts.models import Business, Category, Offer, UserPreferences
+from discounts.models import Address, Business, Category, Offer, UserPreferences
 
 
 class Command(BaseCommand):
@@ -98,9 +98,26 @@ class Command(BaseCommand):
         user_model = get_user_model()
         test_user, _ = user_model.objects.get_or_create(
             email="testuser@example.com",
+            defaults={"first_name": "John", "last_name": "Doe"},
         )
         test_user.set_password("testpass123")
-        test_user.save(update_fields=["password"])
+        test_user.first_name = "John"
+        test_user.last_name = "Doe"
+        test_user.save(update_fields=["password", "first_name", "last_name"])
+
+        Address.objects.update_or_create(
+            user=test_user,
+            street="Musterstraße",
+            house_number="12",
+            defaults={
+                "postal_code": "10115",
+                "city": "Berlin",
+                "county": "Germany",
+                "latitude": Decimal("52.520008"),
+                "longitude": Decimal("13.404954"),
+                "is_default": True,
+            },
+        )
 
         preferences, _ = UserPreferences.objects.get_or_create(user=test_user)
         preferences.notifications_enabled = True

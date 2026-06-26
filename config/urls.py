@@ -18,13 +18,9 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-    TokenVerifyView,
-)
+from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
-from discounts.views_auth import RegisterAPIView
+from discounts.views_auth import LoginAPIView, RegisterAPIView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -35,7 +31,7 @@ urlpatterns = [
         name="swagger-ui",
     ),
     path("api/auth/register", RegisterAPIView.as_view(), name="auth-register"),
-    path("api/auth/token", TokenObtainPairView.as_view(), name="auth-token"),
+    path("api/auth/token", LoginAPIView.as_view(), name="auth-token"),
     path(
         "api/auth/token/refresh",
         TokenRefreshView.as_view(),

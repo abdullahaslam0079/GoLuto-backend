@@ -2,10 +2,15 @@ from django.contrib.auth import get_user_model
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .serializers import RegisterSerializer
+from .serializers import LoginTokenObtainPairSerializer, RegisterSerializer
 
 User = get_user_model()
+
+
+class LoginAPIView(TokenObtainPairView):
+    serializer_class = LoginTokenObtainPairSerializer
 
 
 class RegisterAPIView(generics.CreateAPIView):
@@ -22,7 +27,11 @@ class RegisterAPIView(generics.CreateAPIView):
         refresh = RefreshToken.for_user(user)
         return Response(
             {
-                "user": {"id": user.id, "email": user.email},
+                "user": {
+                    "id": str(user.id),
+                    "email": user.email,
+                    "name": user.get_full_name().strip(),
+                },
                 "refresh": str(refresh),
                 "access": str(refresh.access_token),
             },

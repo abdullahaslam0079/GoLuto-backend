@@ -5,6 +5,7 @@ from .views import (
     CategoriesListAPIView,
     MapBusinessesAPIView,
     OffersListAPIView,
+    UserAddressesAPIView,
     UserPreferencesAPIView,
 )
 
@@ -18,4 +19,5 @@ urlpatterns = [
         name="business-offers",
     ),
     path("user/preferences", UserPreferencesAPIView.as_view(), name="user-preferences"),
+    path("user/addresses", UserAddressesAPIView.as_view(), name="user-addresses"),
 ]

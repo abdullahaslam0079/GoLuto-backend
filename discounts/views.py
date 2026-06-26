@@ -4,8 +4,9 @@ from rest_framework import generics, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Business, Category, Offer, UserPreferences
+from .models import Address, Business, Category, Offer, UserPreferences
 from .serializers import (
+    AddressSerializer,
     CategorySerializer,
     MapBusinessSerializer,
     OfferSerializer,
@@ -115,3 +116,11 @@ class UserPreferencesAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+class UserAddressesAPIView(generics.ListCreateAPIView):
+    serializer_class = AddressSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return self.request.user.addresses.order_by("-is_default", "id")
