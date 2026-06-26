@@ -1,10 +1,15 @@
 from django.contrib.auth import get_user_model
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .serializers import LoginTokenObtainPairSerializer, RegisterSerializer
+from .password_reset import request_password_reset
+from .serializers import (
+    ForgotPasswordSerializer,
+    LoginTokenObtainPairSerializer,
+    RegisterSerializer,
+    ResetPasswordSerializer,
+)
 
 User = get_user_model()
 
@@ -14,7 +19,7 @@ class LoginAPIView(TokenObtainPairView):
 
 
 class RegisterAPIView(generics.CreateAPIView):
-    """Create a user and return JWT access + refresh tokens (mobile-friendly)."""
+    """Create a user account."""
 
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
@@ -23,17 +28,42 @@ class RegisterAPIView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        refresh = RefreshToken.for_user(user)
+        serializer.save()
         return Response(
-            {
-                "user": {
-                    "id": str(user.id),
-                    "email": user.email,
-                    "name": user.get_full_name().strip(),
-                },
-                "refresh": str(refresh),
-                "access": str(refresh.access_token),
-            },
+            {"message": "Account created successfully.", "errors": {}},
             status=status.HTTP_201_CREATED,
+        )
+
+
+class ForgotPasswordAPIView(generics.GenericAPIView):
+    serializer_class = ForgotPasswordSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            message = request_password_reset(serializer.validated_data["email"])
+        except Exception:
+            return Response(
+                {
+                    "message": "Unable to send password reset email. Please try again later.",
+                    "errors": {},
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response({"message": message, "errors": {}})
+
+
+class ResetPasswordAPIView(generics.GenericAPIView):
+    serializer_class = ResetPasswordSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {"message": "Password reset successfully.", "errors": {}},
+            status=status.HTTP_200_OK,
         )

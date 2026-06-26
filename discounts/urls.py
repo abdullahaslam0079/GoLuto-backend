@@ -5,6 +5,7 @@ from .views import (
     CategoriesListAPIView,
     MapBusinessesAPIView,
     OffersListAPIView,
+    UserAddressDetailAPIView,
     UserAddressesAPIView,
     UserPreferencesAPIView,
 )
@@ -20,4 +21,9 @@ urlpatterns = [
     ),
     path("user/preferences", UserPreferencesAPIView.as_view(), name="user-preferences"),
     path("user/addresses", UserAddressesAPIView.as_view(), name="user-addresses"),
+    path(
+        "user/addresses/<str:address_id>",
+        UserAddressDetailAPIView.as_view(),
+        name="user-address-detail",
+    ),
 ]

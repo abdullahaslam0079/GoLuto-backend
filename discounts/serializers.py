@@ -1,19 +1,47 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Address, Business, Category, Offer, UserPreferences
+from .models import Address, Business, Category, Offer, PasswordResetToken, UserPreferences
 
 User = get_user_model()
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(write_only=True, max_length=301, trim_whitespace=True)
-    password = serializers.CharField(write_only=True, style={"input_type": "password"})
+    name = serializers.CharField(
+        write_only=True,
+        max_length=301,
+        trim_whitespace=True,
+        error_messages={
+            "required": "Full name is required.",
+            "blank": "Full name cannot be empty.",
+        },
+    )
+    email = serializers.EmailField(
+        error_messages={
+            "required": "Email is required.",
+            "blank": "Email cannot be empty.",
+            "invalid": "Enter a valid email address.",
+        }
+    )
+    password = serializers.CharField(
+        write_only=True,
+        style={"input_type": "password"},
+        error_messages={
+            "required": "Password is required.",
+            "blank": "Password cannot be empty.",
+        },
+    )
     password_confirm = serializers.CharField(
-        write_only=True, style={"input_type": "password"}
+        write_only=True,
+        style={"input_type": "password"},
+        error_messages={
+            "required": "Password confirmation is required.",
+            "blank": "Password confirmation cannot be empty.",
+        },
     )
 
     class Meta:
@@ -25,12 +53,23 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Full name is required.")
         return value.strip()
 
+    def validate_email(self, value: str) -> str:
+        email = value.strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError(
+                "An account with this email already exists."
+            )
+        return email
+
     def validate(self, attrs):
         if attrs["password"] != attrs["password_confirm"]:
             raise serializers.ValidationError(
                 {"password_confirm": "Passwords do not match."}
             )
-        validate_password(attrs["password"])
+        try:
+            validate_password(attrs["password"])
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": list(exc.messages)}) from exc
         return attrs
 
     def create(self, validated_data):
@@ -120,14 +159,54 @@ class LoginUserSerializer(serializers.ModelSerializer):
 
 class AddressSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
-    houseNumber = serializers.CharField(source="house_number")
-    postalCode = serializers.CharField(source="postal_code")
+    street = serializers.CharField(
+        error_messages={
+            "required": "Street is required.",
+            "blank": "Street cannot be empty.",
+        }
+    )
+    houseNumber = serializers.CharField(
+        source="house_number",
+        error_messages={
+            "required": "House number is required.",
+            "blank": "House number cannot be empty.",
+        },
+    )
+    postalCode = serializers.CharField(
+        source="postal_code",
+        error_messages={
+            "required": "Postal code is required.",
+            "blank": "Postal code cannot be empty.",
+        },
+    )
+    city = serializers.CharField(
+        error_messages={
+            "required": "City is required.",
+            "blank": "City cannot be empty.",
+        }
+    )
+    county = serializers.CharField(
+        error_messages={
+            "required": "County is required.",
+            "blank": "County cannot be empty.",
+        }
+    )
     isDefault = serializers.BooleanField(
         source="is_default", required=False, default=False
     )
     formattedAddress = serializers.CharField(source="formatted_address", read_only=True)
-    latitude = serializers.FloatField()
-    longitude = serializers.FloatField()
+    latitude = serializers.FloatField(
+        error_messages={
+            "required": "Latitude is required.",
+            "invalid": "Latitude must be a valid number.",
+        }
+    )
+    longitude = serializers.FloatField(
+        error_messages={
+            "required": "Longitude is required.",
+            "invalid": "Longitude must be a valid number.",
+        }
+    )
 
     class Meta:
         model = Address
@@ -144,8 +223,37 @@ class AddressSerializer(serializers.ModelSerializer):
             "formattedAddress",
         ]
 
+    def validate_latitude(self, value: float) -> float:
+        if value < -90 or value > 90:
+            raise serializers.ValidationError("Latitude must be between -90 and 90.")
+        return value
+
+    def validate_longitude(self, value: float) -> float:
+        if value < -180 or value > 180:
+            raise serializers.ValidationError("Longitude must be between -180 and 180.")
+        return value
+
     def get_id(self, obj: Address) -> str:
         return f"addr_{obj.pk}"
+
+    def _apply_default_logic(self, user, is_default: bool, exclude_pk: int | None = None):
+        if is_default:
+            queryset = user.addresses.filter(is_default=True)
+            if exclude_pk is not None:
+                queryset = queryset.exclude(pk=exclude_pk)
+            queryset.update(is_default=False)
+            return True
+
+        queryset = user.addresses
+        if exclude_pk is not None:
+            queryset = queryset.exclude(pk=exclude_pk)
+        if not queryset.filter(is_default=True).exists():
+            next_address = queryset.order_by("id").first()
+            if next_address:
+                next_address.is_default = True
+                next_address.save(update_fields=["is_default"])
+                return False
+        return is_default
 
     def create(self, validated_data):
         user = self.context["request"].user
@@ -156,8 +264,41 @@ class AddressSerializer(serializers.ModelSerializer):
             validated_data["is_default"] = True
         return Address.objects.create(user=user, **validated_data)
 
+    def update(self, instance, validated_data):
+        user = self.context["request"].user
+        is_default = validated_data.get("is_default", instance.is_default)
+
+        if "is_default" in validated_data and not is_default and instance.is_default:
+            other_addresses = user.addresses.exclude(pk=instance.pk)
+            if not other_addresses.exists():
+                validated_data["is_default"] = True
+            else:
+                self._apply_default_logic(user, is_default=False, exclude_pk=instance.pk)
+        elif is_default and not instance.is_default:
+            self._apply_default_logic(user, is_default=True, exclude_pk=instance.pk)
+
+        return super().update(instance, validated_data)
+
 
 class LoginTokenObtainPairSerializer(TokenObtainPairSerializer):
+    default_error_messages = {
+        "no_active_account": "Invalid email or password.",
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"] = serializers.EmailField(
+            error_messages={
+                "required": "Email is required.",
+                "blank": "Email cannot be empty.",
+                "invalid": "Enter a valid email address.",
+            }
+        )
+        self.fields["password"].error_messages = {
+            "required": "Password is required.",
+            "blank": "Password cannot be empty.",
+        }
+
     def validate(self, attrs):
         data = super().validate(attrs)
         user = self.user
@@ -167,6 +308,78 @@ class LoginTokenObtainPairSerializer(TokenObtainPairSerializer):
             user.addresses.order_by("-is_default", "id"), many=True
         ).data
         return data
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField(
+        error_messages={
+            "required": "Email is required.",
+            "blank": "Email cannot be empty.",
+            "invalid": "Enter a valid email address.",
+        }
+    )
+
+    def validate_email(self, value: str) -> str:
+        return value.strip().lower()
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    token = serializers.UUIDField(
+        error_messages={
+            "required": "Reset token is required.",
+            "invalid": "Enter a valid reset token.",
+        }
+    )
+    password = serializers.CharField(
+        write_only=True,
+        style={"input_type": "password"},
+        error_messages={
+            "required": "Password is required.",
+            "blank": "Password cannot be empty.",
+        },
+    )
+    password_confirm = serializers.CharField(
+        write_only=True,
+        style={"input_type": "password"},
+        error_messages={
+            "required": "Password confirmation is required.",
+            "blank": "Password confirmation cannot be empty.",
+        },
+    )
+
+    def validate_token(self, value):
+        try:
+            reset_token = PasswordResetToken.objects.select_related("user").get(
+                token=value
+            )
+        except PasswordResetToken.DoesNotExist as exc:
+            raise serializers.ValidationError(
+                "Invalid or expired reset token."
+            ) from exc
+        if not reset_token.is_valid:
+            raise serializers.ValidationError("Invalid or expired reset token.")
+        self.context["reset_token"] = reset_token
+        return value
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["password_confirm"]:
+            raise serializers.ValidationError(
+                {"password_confirm": "Passwords do not match."}
+            )
+        user = self.context["reset_token"].user
+        try:
+            validate_password(attrs["password"], user=user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": list(exc.messages)}) from exc
+        return attrs
+
+    def save(self, **kwargs):
+        reset_token = self.context["reset_token"]
+        user = reset_token.user
+        user.set_password(self.validated_data["password"])
+        user.save(update_fields=["password"])
+        reset_token.mark_used()
+        return user
 
 
 class UserPreferencesSerializer(serializers.ModelSerializer):

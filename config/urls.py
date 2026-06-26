@@ -20,7 +20,12 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
-from discounts.views_auth import LoginAPIView, RegisterAPIView
+from discounts.views_auth import (
+    ForgotPasswordAPIView,
+    LoginAPIView,
+    RegisterAPIView,
+    ResetPasswordAPIView,
+)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -38,5 +43,15 @@ urlpatterns = [
         name="auth-token-refresh",
     ),
     path("api/auth/token/verify", TokenVerifyView.as_view(), name="auth-token-verify"),
+    path(
+        "api/auth/password/forgot",
+        ForgotPasswordAPIView.as_view(),
+        name="auth-password-forgot",
+    ),
+    path(
+        "api/auth/password/reset",
+        ResetPasswordAPIView.as_view(),
+        name="auth-password-reset",
+    ),
     path("api/", include("discounts.urls")),
 ]

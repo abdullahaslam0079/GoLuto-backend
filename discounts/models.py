@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
@@ -116,3 +118,30 @@ class Address(models.Model):
 
     def __str__(self) -> str:
         return self.formatted_address
+
+
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="password_reset_tokens"
+    )
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["token"]),
+            models.Index(fields=["user", "used_at"]),
+        ]
+
+    @property
+    def is_valid(self) -> bool:
+        return self.used_at is None and timezone.now() < self.expires_at
+
+    def mark_used(self) -> None:
+        self.used_at = timezone.now()
+        self.save(update_fields=["used_at"])
+
+    def __str__(self) -> str:
+        return f"PasswordReset<{self.user.email}>"
