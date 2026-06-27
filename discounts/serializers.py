@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Address, Business, Category, Offer, PasswordResetToken, UserPreferences
+from .models import Address, Branch, Business, Category, Offer, PasswordResetToken, UserPreferences
 
 User = get_user_model()
 
@@ -100,6 +100,10 @@ class OfferSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(
         source="business.category.name", read_only=True
     )
+    category = CategorySerializer(source="business.category", read_only=True)
+    branch_ids = serializers.PrimaryKeyRelatedField(
+        many=True, source="branches", read_only=True
+    )
     is_active = serializers.SerializerMethodField()
 
     class Meta:
@@ -110,13 +114,22 @@ class OfferSerializer(serializers.ModelSerializer):
             "business_name",
             "category_id",
             "category_name",
+            "category",
+            "branch_ids",
+            "offer_type",
             "title",
             "description",
             "discount_percent",
+            "item_name",
+            "original_price",
+            "discounted_price",
+            "usage_limit_type",
+            "usage_limit_count",
             "is_enabled",
             "is_time_limited",
             "starts_at",
             "ends_at",
+            "qr_code",
             "is_active",
         ]
 
@@ -124,7 +137,37 @@ class OfferSerializer(serializers.ModelSerializer):
         return obj.is_active
 
 
+class MapBranchSerializer(serializers.ModelSerializer):
+    business_id = serializers.IntegerField(source="business.id", read_only=True)
+    business_name = serializers.CharField(source="business.name", read_only=True)
+    category_id = serializers.IntegerField(source="business.category.id", read_only=True)
+    category_name = serializers.CharField(source="business.category.name", read_only=True)
+    category = CategorySerializer(source="business.category", read_only=True)
+    highest_discount_percent = serializers.DecimalField(
+        max_digits=5, decimal_places=2, read_only=True
+    )
+    formattedAddress = serializers.CharField(source="formatted_address", read_only=True)
+
+    class Meta:
+        model = Branch
+        fields = [
+            "id",
+            "business_id",
+            "business_name",
+            "category_id",
+            "category_name",
+            "category",
+            "name",
+            "latitude",
+            "longitude",
+            "formattedAddress",
+            "highest_discount_percent",
+        ]
+
+
 class MapBusinessSerializer(serializers.ModelSerializer):
+    """Legacy alias kept for backward compatibility; map data is branch-based."""
+
     highest_discount_percent = serializers.DecimalField(
         max_digits=5, decimal_places=2, read_only=True
     )
@@ -136,8 +179,6 @@ class MapBusinessSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "category_name",
-            "latitude",
-            "longitude",
             "highest_discount_percent",
         ]
 
@@ -302,6 +343,10 @@ class LoginTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
         user = self.user
+        if user.is_business_account:
+            raise serializers.ValidationError(
+                {"email": "Please use the business login endpoint for business accounts."}
+            )
         data.pop("refresh", None)
         data["user"] = LoginUserSerializer(user).data
         data["addresses"] = AddressSerializer(

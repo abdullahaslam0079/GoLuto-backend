@@ -15,6 +15,7 @@ User = get_user_model()
 
 
 class LoginAPIView(TokenObtainPairView):
+    authentication_classes = []
     serializer_class = LoginTokenObtainPairSerializer
 
 
@@ -23,6 +24,7 @@ class RegisterAPIView(generics.CreateAPIView):
 
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
@@ -37,6 +39,7 @@ class RegisterAPIView(generics.CreateAPIView):
 
 class ForgotPasswordAPIView(generics.GenericAPIView):
     serializer_class = ForgotPasswordSerializer
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -57,6 +60,7 @@ class ForgotPasswordAPIView(generics.GenericAPIView):
 
 class ResetPasswordAPIView(generics.GenericAPIView):
     serializer_class = ResetPasswordSerializer
+    authentication_classes = []
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):

@@ -1,31 +1,19 @@
-from django.db.models import Max, Q
+from django.db.models import Max
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .address_utils import get_user_address, promote_next_default_address
-from .models import Address, Business, Category, Offer, UserPreferences
+from .models import Address, Branch, Category, Offer, UserPreferences
+from .offer_utils import active_offer_q, filter_active_offers
 from .serializers import (
     AddressSerializer,
     CategorySerializer,
-    MapBusinessSerializer,
+    MapBranchSerializer,
     OfferSerializer,
     UserPreferencesSerializer,
 )
-
-
-def active_offer_q(now):
-    return Q(
-        offers__is_enabled=True,
-    ) & (
-        Q(offers__is_time_limited=False)
-        | (
-            Q(offers__is_time_limited=True)
-            & (Q(offers__starts_at__isnull=True) | Q(offers__starts_at__lte=now))
-            & (Q(offers__ends_at__isnull=True) | Q(offers__ends_at__gte=now))
-        )
-    )
 
 
 class CategoriesListAPIView(generics.ListAPIView):
@@ -39,43 +27,50 @@ class OffersListAPIView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        now = timezone.now()
         queryset = Offer.objects.select_related(
             "business", "business__category"
-        ).filter(is_enabled=True)
-        queryset = queryset.filter(
-            Q(is_time_limited=False)
-            | (
-                Q(is_time_limited=True)
-                & (Q(starts_at__isnull=True) | Q(starts_at__lte=now))
-                & (Q(ends_at__isnull=True) | Q(ends_at__gte=now))
+        ).prefetch_related("branches")
+        queryset = filter_active_offers(queryset)
+
+        category_id = self.request.query_params.get("category_id")
+        if category_id:
+            queryset = queryset.filter(business__category_id=category_id)
+
+        branch_id = self.request.query_params.get("branch_id")
+        if branch_id:
+            queryset = queryset.filter(branches__id=branch_id)
+
+        return queryset.order_by("-discount_percent", "-id").distinct()
+
+
+class MapBranchesAPIView(generics.ListAPIView):
+    serializer_class = MapBranchSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        now = timezone.now()
+        queryset = (
+            Branch.objects.select_related("business", "business__category")
+            .annotate(
+                highest_discount_percent=Max(
+                    "offers__discount_percent",
+                    filter=active_offer_q(now, prefix="offers"),
+                )
             )
+            .filter(highest_discount_percent__isnull=False)
         )
 
         category_id = self.request.query_params.get("category_id")
         if category_id:
             queryset = queryset.filter(business__category_id=category_id)
 
-        return queryset.order_by("-discount_percent", "-id")
+        return queryset.order_by("-highest_discount_percent", "name")
 
 
-class MapBusinessesAPIView(generics.ListAPIView):
-    serializer_class = MapBusinessSerializer
-    permission_classes = [permissions.AllowAny]
+class MapBusinessesAPIView(MapBranchesAPIView):
+    """Backward-compatible alias: map pins are branch locations."""
 
-    def get_queryset(self):
-        now = timezone.now()
-        return (
-            Business.objects.select_related("category")
-            .annotate(
-                highest_discount_percent=Max(
-                    "offers__discount_percent",
-                    filter=active_offer_q(now),
-                )
-            )
-            .exclude(highest_discount_percent__isnull=True)
-            .order_by("-highest_discount_percent", "name")
-        )
+    pass
 
 
 class BusinessOffersAPIView(generics.ListAPIView):
@@ -83,24 +78,27 @@ class BusinessOffersAPIView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        now = timezone.now()
         business_id = self.kwargs["business_id"]
-        return (
+        queryset = (
             Offer.objects.select_related("business", "business__category")
-            .filter(
-                business_id=business_id,
-                is_enabled=True,
-            )
-            .filter(
-                Q(is_time_limited=False)
-                | (
-                    Q(is_time_limited=True)
-                    & (Q(starts_at__isnull=True) | Q(starts_at__lte=now))
-                    & (Q(ends_at__isnull=True) | Q(ends_at__gte=now))
-                )
-            )
-            .order_by("-discount_percent", "-id")
+            .prefetch_related("branches")
+            .filter(business_id=business_id)
         )
+        return filter_active_offers(queryset).order_by("-discount_percent", "-id")
+
+
+class BranchOffersAPIView(generics.ListAPIView):
+    serializer_class = OfferSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        branch_id = self.kwargs["branch_id"]
+        queryset = (
+            Offer.objects.select_related("business", "business__category")
+            .prefetch_related("branches")
+            .filter(branches__id=branch_id)
+        )
+        return filter_active_offers(queryset).order_by("-discount_percent", "-id").distinct()
 
 
 class UserPreferencesAPIView(APIView):

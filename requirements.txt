@@ -6,3 +6,4 @@ gunicorn>=22.0
 whitenoise>=6.0
 dj-database-url>=2.0
 psycopg[binary]>=3.0
+Pillow>=10.0

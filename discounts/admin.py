@@ -3,7 +3,18 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm as BaseUserChangeForm
 from django.contrib.auth.forms import UserCreationForm as BaseUserCreationForm
 
-from .models import Address, Business, Category, Offer, User, UserPreferences
+from .models import (
+    Address,
+    Branch,
+    Business,
+    Category,
+    Offer,
+    OfferBranchStats,
+    OfferRedemption,
+    OfferScan,
+    User,
+    UserPreferences,
+)
 
 
 class UserCreationForm(BaseUserCreationForm):
@@ -24,12 +35,13 @@ class UserAdmin(BaseUserAdmin):
     add_form = UserCreationForm
 
     ordering = ("email",)
-    list_display = ("email", "is_staff", "is_active", "is_superuser")
+    list_display = ("email", "account_type", "is_staff", "is_active", "is_superuser")
     search_fields = ("email",)
-    list_filter = ("is_staff", "is_superuser", "is_active")
+    list_filter = ("account_type", "is_staff", "is_superuser", "is_active")
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
+        ("Account", {"fields": ("account_type",)}),
         (
             "Permissions",
             {
@@ -49,12 +61,17 @@ class UserAdmin(BaseUserAdmin):
             None,
             {
                 "classes": ("wide",),
-                "fields": ("email", "password1", "password2"),
+                "fields": ("email", "password1", "password2", "account_type"),
             },
         ),
     )
 
     filter_horizontal = ("groups", "user_permissions")
+
+
+class BranchInline(admin.TabularInline):
+    model = Branch
+    extra = 0
 
 
 @admin.register(Category)
@@ -65,9 +82,17 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Business)
 class BusinessAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "category", "latitude", "longitude")
+    list_display = ("id", "name", "owner", "category")
     list_filter = ("category",)
-    search_fields = ("name",)
+    search_fields = ("name", "owner__email")
+    inlines = [BranchInline]
+
+
+@admin.register(Branch)
+class BranchAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "business", "city", "latitude", "longitude")
+    list_filter = ("city", "business__category")
+    search_fields = ("name", "business__name", "city")
 
 
 @admin.register(Offer)
@@ -76,14 +101,30 @@ class OfferAdmin(admin.ModelAdmin):
         "id",
         "business",
         "title",
+        "offer_type",
         "discount_percent",
+        "usage_limit_type",
         "is_enabled",
         "is_time_limited",
-        "starts_at",
-        "ends_at",
     )
-    list_filter = ("is_enabled", "is_time_limited", "business__category")
-    search_fields = ("title", "business__name")
+    list_filter = ("offer_type", "is_enabled", "is_time_limited", "business__category")
+    search_fields = ("title", "business__name", "item_name")
+    filter_horizontal = ("branches",)
+
+
+@admin.register(OfferBranchStats)
+class OfferBranchStatsAdmin(admin.ModelAdmin):
+    list_display = ("offer", "branch", "scan_count", "avail_count")
+
+
+@admin.register(OfferScan)
+class OfferScanAdmin(admin.ModelAdmin):
+    list_display = ("offer", "branch", "user", "scanned_at")
+
+
+@admin.register(OfferRedemption)
+class OfferRedemptionAdmin(admin.ModelAdmin):
+    list_display = ("offer", "branch", "user", "redeemed_at")
 
 
 @admin.register(UserPreferences)
