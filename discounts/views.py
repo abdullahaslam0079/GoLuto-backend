@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -5,14 +6,36 @@ from rest_framework.views import APIView
 
 from .address_utils import get_user_address, promote_next_default_address
 from .models import Address, Branch, Category, Offer, UserPreferences
-from .offer_utils import active_offer_q, branch_highlight_queryset, filter_active_offers
+from .offer_utils import (
+    active_offer_q,
+    branch_highlight_queryset,
+    build_user_redemption_map,
+    filter_active_offers,
+    get_user_offer_usage_status,
+)
 from .serializers import (
     AddressSerializer,
     CategorySerializer,
     MapBranchSerializer,
     OfferSerializer,
+    OfferUsageSerializer,
     UserPreferencesSerializer,
 )
+
+User = get_user_model()
+
+
+class UserOfferUsageContextMixin:
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        user = self.request.user
+        if user.is_authenticated and user.account_type == User.AccountType.CONSUMER:
+            queryset = self.filter_queryset(self.get_queryset())
+            offer_ids = list(queryset.values_list("id", flat=True))
+            context["user_offer_usage_by_id"] = build_user_redemption_map(
+                user, offer_ids
+            )
+        return context
 
 
 class CategoriesListAPIView(generics.ListAPIView):
@@ -21,7 +44,7 @@ class CategoriesListAPIView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
 
-class OffersListAPIView(generics.ListAPIView):
+class OffersListAPIView(UserOfferUsageContextMixin, generics.ListAPIView):
     serializer_class = OfferSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -64,7 +87,7 @@ class MapBusinessesAPIView(MapBranchesAPIView):
     pass
 
 
-class BusinessOffersAPIView(generics.ListAPIView):
+class BusinessOffersAPIView(UserOfferUsageContextMixin, generics.ListAPIView):
     serializer_class = OfferSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -78,7 +101,7 @@ class BusinessOffersAPIView(generics.ListAPIView):
         return filter_active_offers(queryset).order_by("-discount_percent", "-id")
 
 
-class BranchOffersAPIView(generics.ListAPIView):
+class BranchOffersAPIView(UserOfferUsageContextMixin, generics.ListAPIView):
     serializer_class = OfferSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -90,6 +113,40 @@ class BranchOffersAPIView(generics.ListAPIView):
             .filter(branches__id=branch_id)
         )
         return filter_active_offers(queryset).order_by("-discount_percent", "-id").distinct()
+
+
+class OfferUsageAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, offer_id):
+        if request.user.account_type != User.AccountType.CONSUMER:
+            return Response(
+                {
+                    "message": "Consumer account required.",
+                    "errors": {"detail": ["Consumer account required."]},
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        offer = Offer.objects.filter(pk=offer_id).first()
+        if offer is None:
+            return Response(
+                {
+                    "message": "Offer not found.",
+                    "errors": {"detail": ["Offer not found."]},
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        usage = get_user_offer_usage_status(request.user, offer)
+        serializer = OfferUsageSerializer.from_usage(offer.id, usage)
+        return Response(
+            {
+                "message": "Offer usage retrieved successfully.",
+                "errors": {},
+                **serializer.data,
+            }
+        )
 
 
 class UserPreferencesAPIView(APIView):

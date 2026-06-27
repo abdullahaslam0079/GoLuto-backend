@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -7,9 +9,12 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import Address, Branch, Business, Category, Offer, PasswordResetToken, UserPreferences
 from .offer_utils import (
+    UserOfferUsageStatus,
     build_media_url,
     branch_highlight_queryset,
+    build_user_redemption_map,
     get_highest_discount_active_offer,
+    get_user_offer_usage_status,
 )
 
 User = get_user_model()
@@ -111,6 +116,11 @@ class OfferSerializer(serializers.ModelSerializer):
     )
     is_active = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
+    user_redemption_count = serializers.SerializerMethodField()
+    user_remaining_uses = serializers.SerializerMethodField()
+    is_available_for_user = serializers.SerializerMethodField()
+    last_redeemed_at = serializers.SerializerMethodField()
+    period_resets_at = serializers.SerializerMethodField()
 
     class Meta:
         model = Offer
@@ -138,7 +148,47 @@ class OfferSerializer(serializers.ModelSerializer):
             "ends_at",
             "qr_code",
             "is_active",
+            "user_redemption_count",
+            "user_remaining_uses",
+            "is_available_for_user",
+            "last_redeemed_at",
+            "period_resets_at",
         ]
+
+    def _get_usage_status(self, obj: Offer) -> UserOfferUsageStatus | None:
+        usage_map = self.context.get("user_offer_usage_by_id")
+        if usage_map is not None:
+            return usage_map.get(obj.id)
+
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if (
+            user
+            and user.is_authenticated
+            and user.account_type == user.AccountType.CONSUMER
+        ):
+            return get_user_offer_usage_status(user, obj)
+        return None
+
+    def get_user_redemption_count(self, obj: Offer) -> int | None:
+        usage = self._get_usage_status(obj)
+        return usage.redemption_count if usage else None
+
+    def get_user_remaining_uses(self, obj: Offer) -> int | None:
+        usage = self._get_usage_status(obj)
+        return usage.remaining_uses if usage else None
+
+    def get_is_available_for_user(self, obj: Offer) -> bool | None:
+        usage = self._get_usage_status(obj)
+        return usage.is_available_for_user if usage else None
+
+    def get_last_redeemed_at(self, obj: Offer):
+        usage = self._get_usage_status(obj)
+        return usage.last_redeemed_at if usage else None
+
+    def get_period_resets_at(self, obj: Offer):
+        usage = self._get_usage_status(obj)
+        return usage.period_resets_at if usage else None
 
     def get_is_active(self, obj: Offer) -> bool:
         return obj.is_active
@@ -150,6 +200,26 @@ class OfferSerializer(serializers.ModelSerializer):
         if request:
             return request.build_absolute_uri(obj.image.url)
         return obj.image.url
+
+
+class OfferUsageSerializer(serializers.Serializer):
+    offer_id = serializers.IntegerField()
+    user_redemption_count = serializers.IntegerField()
+    user_remaining_uses = serializers.IntegerField()
+    max_uses = serializers.IntegerField()
+    is_available_for_user = serializers.BooleanField()
+    last_redeemed_at = serializers.DateTimeField(allow_null=True)
+    period_resets_at = serializers.DateTimeField(allow_null=True)
+    message = serializers.CharField(allow_blank=True)
+
+    @classmethod
+    def from_usage(cls, offer_id: int, usage: UserOfferUsageStatus):
+        return cls(
+            {
+                "offer_id": offer_id,
+                **usage.as_dict(),
+            }
+        )
 
 
 class BranchTopOfferSerializer(serializers.ModelSerializer):

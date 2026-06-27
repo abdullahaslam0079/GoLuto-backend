@@ -9,8 +9,14 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.utils import timezone
 
 from .models import Branch, Offer, OfferRedemption, OfferScan
-from .offer_utils import branch_highlight_queryset, increment_branch_stat
+from .offer_utils import (
+    branch_highlight_queryset,
+    can_user_redeem_offer,
+    get_user_offer_usage_status,
+    increment_branch_stat,
+)
 from .permissions import IsBusinessAccount, IsConsumerAccount
+from .serializers import OfferUsageSerializer
 from .serializers_business import (
     BranchSerializer,
     BusinessLoginTokenObtainPairSerializer,
@@ -254,10 +260,25 @@ class OfferRedeemAPIView(APIView):
         branch = serializer.validated_data["branch"]
 
         with transaction.atomic():
-            OfferRedemption.objects.create(
-                offer=offer, branch=branch, user=request.user
+            locked_offer = Offer.objects.select_for_update().get(pk=offer.pk)
+            can_redeem, message = can_user_redeem_offer(
+                request.user, locked_offer, branch
             )
-            increment_branch_stat(offer, branch, avail=True)
+            if not can_redeem:
+                return Response(
+                    {
+                        "message": message,
+                        "errors": {"non_field_errors": [message]},
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            OfferRedemption.objects.create(
+                offer=locked_offer, branch=branch, user=request.user
+            )
+            increment_branch_stat(locked_offer, branch, avail=True)
+            usage = get_user_offer_usage_status(request.user, locked_offer)
+            usage_data = OfferUsageSerializer.from_usage(locked_offer.id, usage).data
 
         return Response(
             {
@@ -265,6 +286,7 @@ class OfferRedeemAPIView(APIView):
                 "errors": {},
                 "offer_id": offer.id,
                 "branch_id": branch.id,
+                **usage_data,
             },
             status=status.HTTP_200_OK,
         )

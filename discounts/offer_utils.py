@@ -1,4 +1,9 @@
-from datetime import timedelta
+from __future__ import annotations
+
+from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any
 
 from django.db.models import F, Max, Prefetch, Q
 from django.utils import timezone
@@ -30,21 +35,197 @@ def filter_active_offers(queryset, now=None):
     return queryset.filter(active_offer_q(now))
 
 
-def period_start(limit_type: str, now=None):
+def period_start(limit_type: str, now=None) -> datetime | None:
     now = now or timezone.now()
     if limit_type.endswith("_week"):
-        return now - timedelta(days=now.weekday())
+        start = now - timedelta(days=now.weekday())
+        return start.replace(hour=0, minute=0, second=0, microsecond=0)
     if limit_type.endswith("_month"):
         return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     return None
 
 
-def get_user_redemption_count(user, offer, branch, limit_type, now=None):
-    queryset = OfferRedemption.objects.filter(user=user, offer=offer, branch=branch)
+def period_end(limit_type: str, now=None) -> datetime | None:
+    now = now or timezone.now()
+    if limit_type.endswith("_week"):
+        return period_start(limit_type, now) + timedelta(days=7)
+    if limit_type.endswith("_month"):
+        if now.month == 12:
+            return now.replace(
+                year=now.year + 1,
+                month=1,
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
+        return now.replace(
+            month=now.month + 1,
+            day=1,
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+    return None
+
+
+def get_max_uses_for_offer(offer: Offer) -> int:
+    limit_type = offer.usage_limit_type
+    if limit_type in {
+        Offer.UsageLimitType.ONE_TIME,
+        Offer.UsageLimitType.ONCE_PER_WEEK,
+        Offer.UsageLimitType.ONCE_PER_MONTH,
+    }:
+        return 1
+    return max(offer.usage_limit_count, 1)
+
+
+def get_user_redemption_count(user, offer, limit_type, now=None) -> int:
+    queryset = OfferRedemption.objects.filter(user=user, offer=offer)
     period = period_start(limit_type, now)
     if period:
         queryset = queryset.filter(redeemed_at__gte=period)
     return queryset.count()
+
+
+@dataclass
+class UserOfferUsageStatus:
+    redemption_count: int
+    remaining_uses: int
+    max_uses: int
+    is_available_for_user: bool
+    last_redeemed_at: datetime | None
+    period_resets_at: datetime | None
+    message: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "user_redemption_count": self.redemption_count,
+            "user_remaining_uses": self.remaining_uses,
+            "max_uses": self.max_uses,
+            "is_available_for_user": self.is_available_for_user,
+            "last_redeemed_at": self.last_redeemed_at,
+            "period_resets_at": self.period_resets_at,
+            "message": self.message,
+        }
+
+
+def _redemptions_in_period(
+    redemptions: list[OfferRedemption], limit_type: str, now=None
+) -> list[OfferRedemption]:
+    period = period_start(limit_type, now)
+    if not period:
+        return redemptions
+    return [redemption for redemption in redemptions if redemption.redeemed_at >= period]
+
+
+def get_user_offer_usage_status(
+    user, offer: Offer, *, now=None, offer_active: bool | None = None
+) -> UserOfferUsageStatus:
+    now = now or timezone.now()
+    limit_type = offer.usage_limit_type
+    max_uses = get_max_uses_for_offer(offer)
+    redemptions = list(
+        OfferRedemption.objects.filter(user=user, offer=offer).order_by("-redeemed_at")
+    )
+    period_redemptions = _redemptions_in_period(redemptions, limit_type, now)
+    used = len(period_redemptions)
+    remaining = max(0, max_uses - used)
+    is_active = offer.is_active if offer_active is None else offer_active
+    last_redeemed_at = period_redemptions[0].redeemed_at if period_redemptions else None
+    period_resets_at = period_end(limit_type, now) if limit_type.endswith(("_week", "_month")) else None
+
+    if not is_active:
+        message = "This offer is not currently active."
+        is_available = False
+    elif remaining <= 0:
+        is_available = False
+        message = _limit_reached_message(offer, limit_type, max_uses)
+    else:
+        is_available = True
+        message = ""
+
+    return UserOfferUsageStatus(
+        redemption_count=used,
+        remaining_uses=remaining,
+        max_uses=max_uses,
+        is_available_for_user=is_available,
+        last_redeemed_at=last_redeemed_at,
+        period_resets_at=period_resets_at,
+        message=message,
+    )
+
+
+def build_user_redemption_map(user, offer_ids: list[int], now=None) -> dict[int, UserOfferUsageStatus]:
+    if not offer_ids:
+        return {}
+
+    now = now or timezone.now()
+    redemptions = (
+        OfferRedemption.objects.filter(user=user, offer_id__in=offer_ids)
+        .select_related("offer")
+        .order_by("offer_id", "-redeemed_at")
+    )
+    by_offer: dict[int, list[OfferRedemption]] = defaultdict(list)
+    for redemption in redemptions:
+        by_offer[redemption.offer_id].append(redemption)
+
+    offers = Offer.objects.in_bulk(offer_ids)
+    result: dict[int, UserOfferUsageStatus] = {}
+    for offer_id in offer_ids:
+        offer = offers.get(offer_id)
+        if offer is None:
+            continue
+        limit_type = offer.usage_limit_type
+        max_uses = get_max_uses_for_offer(offer)
+        offer_redemptions = by_offer.get(offer_id, [])
+        period_redemptions = _redemptions_in_period(offer_redemptions, limit_type, now)
+        used = len(period_redemptions)
+        remaining = max(0, max_uses - used)
+        last_redeemed_at = (
+            period_redemptions[0].redeemed_at if period_redemptions else None
+        )
+        period_resets_at = (
+            period_end(limit_type, now) if limit_type.endswith(("_week", "_month")) else None
+        )
+        if not offer.is_active:
+            message = "This offer is not currently active."
+            is_available = False
+        elif remaining <= 0:
+            is_available = False
+            message = _limit_reached_message(offer, limit_type, max_uses)
+        else:
+            is_available = True
+            message = ""
+
+        result[offer_id] = UserOfferUsageStatus(
+            redemption_count=used,
+            remaining_uses=remaining,
+            max_uses=max_uses,
+            is_available_for_user=is_available,
+            last_redeemed_at=last_redeemed_at,
+            period_resets_at=period_resets_at,
+            message=message,
+        )
+    return result
+
+
+def _limit_reached_message(offer: Offer, limit_type: str, max_uses: int) -> str:
+    if limit_type == Offer.UsageLimitType.ONE_TIME:
+        return "You have already used this offer."
+    if limit_type == Offer.UsageLimitType.ONCE_PER_WEEK:
+        return "You can use this offer once per week. Try again next week."
+    if limit_type == Offer.UsageLimitType.ONCE_PER_MONTH:
+        return "You can use this offer once per month. Try again next month."
+    if limit_type == Offer.UsageLimitType.N_TIMES_PER_WEEK:
+        return f"You have reached the limit of {max_uses} uses per week for this offer."
+    if limit_type == Offer.UsageLimitType.N_TIMES_PER_MONTH:
+        return f"You have reached the limit of {max_uses} uses per month for this offer."
+    if limit_type == Offer.UsageLimitType.N_TIMES_TOTAL:
+        return f"You have reached the maximum of {max_uses} uses for this offer."
+    return "You have reached the usage limit for this offer."
 
 
 def can_user_redeem_offer(user, offer, branch):
@@ -57,41 +238,9 @@ def can_user_redeem_offer(user, offer, branch):
     if branch.business_id != offer.business_id:
         return False, "This branch does not belong to the offer business."
 
-    limit_type = offer.usage_limit_type
-    count = offer.usage_limit_count
-    now = timezone.now()
-    used = get_user_redemption_count(user, offer, branch, limit_type, now)
-
-    if limit_type == Offer.UsageLimitType.ONE_TIME:
-        if used >= 1:
-            return False, "You have already used this offer."
-    elif limit_type == Offer.UsageLimitType.ONCE_PER_WEEK:
-        if used >= 1:
-            return False, "You can use this offer once per week. Try again next week."
-    elif limit_type == Offer.UsageLimitType.ONCE_PER_MONTH:
-        if used >= 1:
-            return False, "You can use this offer once per month. Try again next month."
-    elif limit_type == Offer.UsageLimitType.N_TIMES_PER_WEEK:
-        if used >= count:
-            return (
-                False,
-                f"You have reached the limit of {count} uses per week for this offer.",
-            )
-    elif limit_type == Offer.UsageLimitType.N_TIMES_PER_MONTH:
-        if used >= count:
-            return (
-                False,
-                f"You have reached the limit of {count} uses per month for this offer.",
-            )
-    elif limit_type == Offer.UsageLimitType.N_TIMES_TOTAL:
-        total_used = OfferRedemption.objects.filter(
-            user=user, offer=offer, branch=branch
-        ).count()
-        if total_used >= count:
-            return (
-                False,
-                f"You have reached the maximum of {count} uses for this offer.",
-            )
+    usage = get_user_offer_usage_status(user, offer)
+    if not usage.is_available_for_user:
+        return False, usage.message or "You have reached the usage limit for this offer."
 
     return True, ""
 
