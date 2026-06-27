@@ -106,3 +106,30 @@ def increment_branch_stat(offer, branch, *, scan=False, avail=False):
         OfferBranchStats.objects.filter(pk=stats.pk).update(
             avail_count=F("avail_count") + 1
         )
+
+
+def get_highest_discount_active_offer(branch, now=None):
+    now = now or timezone.now()
+    active_offers = [
+        offer
+        for offer in branch.offers.all()
+        if offer.is_enabled
+        and (
+            not offer.is_time_limited
+            or (
+                (offer.starts_at is None or offer.starts_at <= now)
+                and (offer.ends_at is None or offer.ends_at >= now)
+            )
+        )
+    ]
+    if not active_offers:
+        return None
+    return max(active_offers, key=lambda offer: offer.discount_percent)
+
+
+def build_media_url(request, file_field) -> str | None:
+    if not file_field:
+        return None
+    if request:
+        return request.build_absolute_uri(file_field.url)
+    return file_field.url

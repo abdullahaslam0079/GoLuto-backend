@@ -6,6 +6,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import Address, Branch, Business, Category, Offer, PasswordResetToken, UserPreferences
+from .offer_utils import build_media_url, get_highest_discount_active_offer
 
 User = get_user_model()
 
@@ -150,12 +151,14 @@ class OfferSerializer(serializers.ModelSerializer):
 class MapBranchSerializer(serializers.ModelSerializer):
     business_id = serializers.IntegerField(source="business.id", read_only=True)
     business_name = serializers.CharField(source="business.name", read_only=True)
+    business_logo_url = serializers.SerializerMethodField()
     category_id = serializers.IntegerField(source="business.category.id", read_only=True)
     category_name = serializers.CharField(source="business.category.name", read_only=True)
     category = CategorySerializer(source="business.category", read_only=True)
     highest_discount_percent = serializers.DecimalField(
         max_digits=5, decimal_places=2, read_only=True
     )
+    highest_discount_offer_image_url = serializers.SerializerMethodField()
     formattedAddress = serializers.CharField(source="formatted_address", read_only=True)
 
     class Meta:
@@ -164,6 +167,7 @@ class MapBranchSerializer(serializers.ModelSerializer):
             "id",
             "business_id",
             "business_name",
+            "business_logo_url",
             "category_id",
             "category_name",
             "category",
@@ -172,7 +176,17 @@ class MapBranchSerializer(serializers.ModelSerializer):
             "longitude",
             "formattedAddress",
             "highest_discount_percent",
+            "highest_discount_offer_image_url",
         ]
+
+    def get_business_logo_url(self, obj: Branch) -> str | None:
+        return build_media_url(self.context.get("request"), obj.business.logo)
+
+    def get_highest_discount_offer_image_url(self, obj: Branch) -> str | None:
+        top_offer = get_highest_discount_active_offer(obj)
+        if top_offer is None:
+            return None
+        return build_media_url(self.context.get("request"), top_offer.image)
 
 
 class MapBusinessSerializer(serializers.ModelSerializer):

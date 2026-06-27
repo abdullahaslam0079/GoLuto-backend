@@ -1,4 +1,4 @@
-from django.db.models import Max
+from django.db.models import Max, Prefetch
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -49,8 +49,12 @@ class MapBranchesAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         now = timezone.now()
+        active_offers = Offer.objects.filter(active_offer_q(now))
         queryset = (
             Branch.objects.select_related("business", "business__category")
+            .prefetch_related(
+                Prefetch("offers", queryset=active_offers),
+            )
             .annotate(
                 highest_discount_percent=Max(
                     "offers__discount_percent",
