@@ -106,10 +106,15 @@ class OfferAdmin(admin.ModelAdmin):
         "usage_limit_type",
         "is_enabled",
         "is_time_limited",
+        "has_image",
     )
     list_filter = ("offer_type", "is_enabled", "is_time_limited", "business__category")
     search_fields = ("title", "business__name", "item_name")
     filter_horizontal = ("branches",)
+
+    @admin.display(boolean=True, description="Image")
+    def has_image(self, obj):
+        return bool(obj.image)
 
 
 @admin.register(OfferBranchStats)

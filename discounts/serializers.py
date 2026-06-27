@@ -105,6 +105,7 @@ class OfferSerializer(serializers.ModelSerializer):
         many=True, source="branches", read_only=True
     )
     is_active = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Offer
@@ -119,6 +120,7 @@ class OfferSerializer(serializers.ModelSerializer):
             "offer_type",
             "title",
             "description",
+            "image_url",
             "discount_percent",
             "item_name",
             "original_price",
@@ -135,6 +137,14 @@ class OfferSerializer(serializers.ModelSerializer):
 
     def get_is_active(self, obj: Offer) -> bool:
         return obj.is_active
+
+    def get_image_url(self, obj: Offer) -> str | None:
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url
 
 
 class MapBranchSerializer(serializers.ModelSerializer):

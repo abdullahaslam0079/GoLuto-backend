@@ -140,6 +140,7 @@ class BusinessBranchDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 class BusinessOfferListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = BusinessOfferSerializer
     permission_classes = [IsBusinessAccount]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         return (
@@ -174,6 +175,7 @@ class BusinessOfferListCreateAPIView(generics.ListCreateAPIView):
 class BusinessOfferDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = BusinessOfferSerializer
     permission_classes = [IsBusinessAccount]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     lookup_url_kwarg = "offer_id"
 
     def get_queryset(self):

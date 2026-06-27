@@ -116,6 +116,7 @@ class Offer(models.Model):
     offer_type = models.CharField(max_length=20, choices=OfferType.choices)
     title = models.CharField(max_length=120)
     description = models.TextField(blank=True)
+    image = models.ImageField(upload_to="offer_images/", null=True, blank=True)
     discount_percent = models.DecimalField(max_digits=5, decimal_places=2)
     item_name = models.CharField(max_length=120, blank=True)
     original_price = models.DecimalField(

@@ -263,6 +263,8 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
         source="business.category.name", read_only=True
     )
     category = CategorySerializer(source="business.category", read_only=True)
+    image = OptionalImageField(required=False, allow_null=True, write_only=True)
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Offer
@@ -271,6 +273,8 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             "offer_type",
             "title",
             "description",
+            "image",
+            "image_url",
             "discount_percent",
             "item_name",
             "original_price",
@@ -291,7 +295,24 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             "branch_stats",
             "created_at",
         ]
-        read_only_fields = ["id", "qr_code", "created_at"]
+        read_only_fields = ["id", "qr_code", "created_at", "image_url"]
+
+    def run_validation(self, data=serializers.empty):
+        if data is not serializers.empty and hasattr(data, "get"):
+            payload = data.copy() if hasattr(data, "copy") else dict(data)
+            image = payload.get("image")
+            if image in (None, "", b"", [], "null", "none", "undefined"):
+                payload.pop("image", None)
+            return super().run_validation(payload)
+        return super().run_validation(data)
+
+    def get_image_url(self, obj: Offer) -> str | None:
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
