@@ -44,9 +44,12 @@ def migrate_business_locations(apps, schema_editor):
 
         for offer in Offer.objects.filter(business=business):
             offer.branches.add(branch)
-            if offer.qr_code is None:
-                offer.qr_code = uuid.uuid4()
-                offer.save(update_fields=["qr_code"])
+
+
+def assign_unique_offer_qr_codes(apps, schema_editor):
+    Offer = apps.get_model("discounts", "Offer")
+    for offer in Offer.objects.all().only("pk"):
+        Offer.objects.filter(pk=offer.pk).update(qr_code=uuid.uuid4())
 
 
 class Migration(migrations.Migration):
@@ -147,7 +150,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="offer",
             name="qr_code",
-            field=models.UUIDField(default=uuid.uuid4, editable=False, null=True),
+            field=models.UUIDField(editable=False, null=True),
         ),
         migrations.AddField(
             model_name="offer",
@@ -176,6 +179,7 @@ class Migration(migrations.Migration):
             field=models.ManyToManyField(related_name="offers", to="discounts.branch"),
         ),
         migrations.RunPython(migrate_business_locations, migrations.RunPython.noop),
+        migrations.RunPython(assign_unique_offer_qr_codes, migrations.RunPython.noop),
         migrations.AlterField(
             model_name="offer",
             name="qr_code",
