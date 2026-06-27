@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import F, Max, Q
+from django.db.models import F, Max, Prefetch, Q
 from django.utils import timezone
 
 from .models import Offer, OfferBranchStats, OfferRedemption
@@ -133,3 +133,31 @@ def build_media_url(request, file_field) -> str | None:
     if request:
         return request.build_absolute_uri(file_field.url)
     return file_field.url
+
+
+def annotate_branch_highlights(queryset, now=None):
+    now = now or timezone.now()
+    return queryset.annotate(
+        highest_discount_percent=Max(
+            "offers__discount_percent",
+            filter=active_offer_q(now, prefix="offers"),
+        )
+    )
+
+
+def prefetch_branch_offers(queryset, now=None):
+    now = now or timezone.now()
+    return queryset.prefetch_related(
+        Prefetch("offers", queryset=Offer.objects.filter(active_offer_q(now)))
+    )
+
+
+def branch_highlight_queryset(queryset, now=None):
+    now = now or timezone.now()
+    return annotate_branch_highlights(
+        prefetch_branch_offers(
+            queryset.select_related("business", "business__category"),
+            now,
+        ),
+        now,
+    )

@@ -6,8 +6,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from django.utils import timezone
+
 from .models import Branch, Offer, OfferRedemption, OfferScan
-from .offer_utils import increment_branch_stat
+from .offer_utils import branch_highlight_queryset, increment_branch_stat
 from .permissions import IsBusinessAccount, IsConsumerAccount
 from .serializers_business import (
     BranchSerializer,
@@ -76,7 +78,10 @@ class BusinessBranchListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsBusinessAccount]
 
     def get_queryset(self):
-        return self.request.user.business_profile.branches.order_by("name", "id")
+        return branch_highlight_queryset(
+            self.request.user.business_profile.branches.all(),
+            timezone.now(),
+        ).order_by("name", "id")
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -104,7 +109,10 @@ class BusinessBranchDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = "branch_id"
 
     def get_queryset(self):
-        return self.request.user.business_profile.branches.all()
+        return branch_highlight_queryset(
+            self.request.user.business_profile.branches.all(),
+            timezone.now(),
+        )
 
     def get_serializer_context(self):
         context = super().get_serializer_context()

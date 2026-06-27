@@ -1,4 +1,3 @@
-from django.db.models import Max, Prefetch
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -6,7 +5,7 @@ from rest_framework.views import APIView
 
 from .address_utils import get_user_address, promote_next_default_address
 from .models import Address, Branch, Category, Offer, UserPreferences
-from .offer_utils import active_offer_q, filter_active_offers
+from .offer_utils import active_offer_q, branch_highlight_queryset, filter_active_offers
 from .serializers import (
     AddressSerializer,
     CategorySerializer,
@@ -49,20 +48,8 @@ class MapBranchesAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         now = timezone.now()
-        active_offers = Offer.objects.filter(active_offer_q(now))
-        queryset = (
-            Branch.objects.select_related("business", "business__category")
-            .prefetch_related(
-                Prefetch("offers", queryset=active_offers),
-            )
-            .annotate(
-                highest_discount_percent=Max(
-                    "offers__discount_percent",
-                    filter=active_offer_q(now, prefix="offers"),
-                )
-            )
-            .filter(highest_discount_percent__isnull=False)
-        )
+        queryset = branch_highlight_queryset(Branch.objects.all(), now)
+        queryset = queryset.filter(highest_discount_percent__isnull=False)
 
         category_id = self.request.query_params.get("category_id")
         if category_id:

@@ -9,7 +9,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .fields import OptionalImageField
 from .models import Branch, Business, Category, Offer, OfferBranchStats
 from .offer_utils import can_user_redeem_offer
-from .serializers import CategorySerializer
+from .serializers import BranchHighlightSerializer, CategorySerializer
 
 User = get_user_model()
 
@@ -198,11 +198,10 @@ class BusinessLoginTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
 
-class BranchSerializer(serializers.ModelSerializer):
+class BranchSerializer(BranchHighlightSerializer):
     formattedAddress = serializers.CharField(source="formatted_address", read_only=True)
 
-    class Meta:
-        model = Branch
+    class Meta(BranchHighlightSerializer.Meta):
         fields = [
             "id",
             "name",
@@ -213,6 +212,16 @@ class BranchSerializer(serializers.ModelSerializer):
             "latitude",
             "longitude",
             "formattedAddress",
+            "business_logo_url",
+            "highest_discount_percent",
+            "highest_discount_offer",
+            "highest_discount_offer_image_url",
+        ]
+        read_only_fields = [
+            "business_logo_url",
+            "highest_discount_percent",
+            "highest_discount_offer",
+            "highest_discount_offer_image_url",
         ]
 
     def validate_latitude(self, value):
