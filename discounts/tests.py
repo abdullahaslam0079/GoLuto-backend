@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Branch, Business, Category, Offer, OfferRedemption
+from .models import Address, Branch, Business, Category, Offer, OfferRedemption
 from .offer_utils import can_user_redeem_offer, get_user_offer_usage_status
 
 User = get_user_model()
@@ -291,3 +291,186 @@ class LogoutAndAvailedOffersAPITests(APITestCase):
         self.client.force_authenticate(user=self.business_user)
         response = self.client.get("/api/user/offers/availed")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class LocationFilteringAPITests(APITestCase):
+    def setUp(self):
+        self.consumer = User.objects.create_user(
+            email="consumer@example.com",
+            password="testpass123",
+            account_type=User.AccountType.CONSUMER,
+        )
+        self.owner = User.objects.create_user(
+            email="owner@example.com",
+            password="testpass123",
+            account_type=User.AccountType.BUSINESS,
+        )
+        self.category = Category.objects.create(name="Food")
+        self.business = Business.objects.create(
+            owner=self.owner,
+            name="Test Cafe",
+            category=self.category,
+        )
+        self.berlin_near = Branch.objects.create(
+            business=self.business,
+            name="Berlin Near",
+            street="Near",
+            house_number="1",
+            postal_code="10115",
+            city="Berlin",
+            latitude=Decimal("52.520008"),
+            longitude=Decimal("13.404954"),
+        )
+        self.berlin_far = Branch.objects.create(
+            business=self.business,
+            name="Berlin Far",
+            street="Far",
+            house_number="2",
+            postal_code="10117",
+            city="Berlin",
+            latitude=Decimal("52.560008"),
+            longitude=Decimal("13.454954"),
+        )
+        self.munich_branch = Branch.objects.create(
+            business=self.business,
+            name="Munich Branch",
+            street="Marienplatz",
+            house_number="1",
+            postal_code="80331",
+            city="Munich",
+            latitude=Decimal("48.137154"),
+            longitude=Decimal("11.576124"),
+        )
+        self.berlin_offer_near = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Berlin Near Deal",
+            description="Near deal",
+            discount_percent=Decimal("15.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+        )
+        self.berlin_offer_near.branches.set([self.berlin_near])
+        self.berlin_offer_far = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Berlin Far Deal",
+            description="Far deal",
+            discount_percent=Decimal("20.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+        )
+        self.berlin_offer_far.branches.set([self.berlin_far])
+        self.munich_offer = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Munich Deal",
+            description="Munich deal",
+            discount_percent=Decimal("25.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+        )
+        self.munich_offer.branches.set([self.munich_branch])
+        Address.objects.create(
+            user=self.consumer,
+            street="Unter den Linden",
+            house_number="1",
+            postal_code="10117",
+            city="Berlin",
+            county="Berlin",
+            latitude=Decimal("52.517036"),
+            longitude=Decimal("13.388860"),
+            is_default=True,
+        )
+
+    def test_offers_filtered_by_default_address_city(self):
+        self.client.force_authenticate(user=self.consumer)
+        response = self.client.get("/api/offers")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = [offer["title"] for offer in response.data]
+        self.assertIn("Berlin Near Deal", titles)
+        self.assertIn("Berlin Far Deal", titles)
+        self.assertNotIn("Munich Deal", titles)
+
+    def test_offers_sorted_nearest_first(self):
+        self.client.force_authenticate(user=self.consumer)
+        response = self.client.get("/api/offers")
+        berlin_offers = [
+            offer for offer in response.data if offer["title"].startswith("Berlin")
+        ]
+        self.assertEqual(berlin_offers[0]["title"], "Berlin Near Deal")
+        self.assertLess(
+            berlin_offers[0]["nearest_distance_km"],
+            berlin_offers[1]["nearest_distance_km"],
+        )
+
+    def test_map_branches_filtered_by_city(self):
+        self.client.force_authenticate(user=self.consumer)
+        response = self.client.get("/api/map/branches")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        branch_names = [branch["name"] for branch in response.data]
+        self.assertIn("Berlin Near", branch_names)
+        self.assertIn("Berlin Far", branch_names)
+        self.assertNotIn("Munich Branch", branch_names)
+
+    def test_map_branches_sorted_nearest_first(self):
+        self.client.force_authenticate(user=self.consumer)
+        response = self.client.get("/api/map/branches")
+        berlin_branches = [
+            branch for branch in response.data if branch["name"].startswith("Berlin")
+        ]
+        self.assertEqual(berlin_branches[0]["name"], "Berlin Near")
+        self.assertLess(
+            berlin_branches[0]["distance_km"],
+            berlin_branches[1]["distance_km"],
+        )
+
+    def test_selected_address_changes_visible_city(self):
+        munich_address = Address.objects.create(
+            user=self.consumer,
+            street="Sendlinger",
+            house_number="1",
+            postal_code="80331",
+            city="Munich",
+            county="Bavaria",
+            latitude=Decimal("48.135125"),
+            longitude=Decimal("11.581981"),
+        )
+        self.client.force_authenticate(user=self.consumer)
+        response = self.client.get(
+            f"/api/offers?address_id=addr_{munich_address.id}"
+        )
+        titles = [offer["title"] for offer in response.data]
+        self.assertIn("Munich Deal", titles)
+        self.assertNotIn("Berlin Near Deal", titles)
+
+    def test_small_town_falls_back_to_radius(self):
+        nearby_branch = Branch.objects.create(
+            business=self.business,
+            name="Suburban Branch",
+            street="Ring",
+            house_number="5",
+            postal_code="16515",
+            city="Oranienburg",
+            latitude=Decimal("52.525500"),
+            longitude=Decimal("13.410500"),
+        )
+        nearby_offer = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Suburban Deal",
+            description="Just outside Berlin",
+            discount_percent=Decimal("12.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+        )
+        nearby_offer.branches.set([nearby_branch])
+
+        self.client.force_authenticate(user=self.consumer)
+        response = self.client.get(
+            "/api/offers",
+            {
+                "latitude": "52.524000",
+                "longitude": "13.405000",
+                "city": "Kleinstadt",
+            },
+        )
+        titles = [offer["title"] for offer in response.data]
+        self.assertIn("Suburban Deal", titles)
+        self.assertNotIn("Munich Deal", titles)

@@ -7,6 +7,7 @@ from rest_framework import serializers
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from .location_utils import branch_distance_km
 from .models import (
     Address,
     Branch,
@@ -130,6 +131,7 @@ class OfferSerializer(serializers.ModelSerializer):
     is_available_for_user = serializers.SerializerMethodField()
     last_redeemed_at = serializers.SerializerMethodField()
     period_resets_at = serializers.SerializerMethodField()
+    nearest_distance_km = serializers.SerializerMethodField()
 
     class Meta:
         model = Offer
@@ -162,6 +164,7 @@ class OfferSerializer(serializers.ModelSerializer):
             "is_available_for_user",
             "last_redeemed_at",
             "period_resets_at",
+            "nearest_distance_km",
         ]
 
     def _get_usage_status(self, obj: Offer) -> UserOfferUsageStatus | None:
@@ -198,6 +201,16 @@ class OfferSerializer(serializers.ModelSerializer):
     def get_period_resets_at(self, obj: Offer):
         usage = self._get_usage_status(obj)
         return usage.period_resets_at if usage else None
+
+    def get_nearest_distance_km(self, obj: Offer):
+        location = self.context.get("user_location")
+        if location is None:
+            return None
+        branches = list(obj.branches.all())
+        if not branches:
+            return None
+        distance = min(branch_distance_km(branch, location) for branch in branches)
+        return round(distance, 2)
 
     def get_is_active(self, obj: Offer) -> bool:
         return obj.is_active
@@ -363,6 +376,7 @@ class MapBranchSerializer(BranchHighlightSerializer):
     category_name = serializers.CharField(source="business.category.name", read_only=True)
     category = CategorySerializer(source="business.category", read_only=True)
     formattedAddress = serializers.CharField(source="formatted_address", read_only=True)
+    distance_km = serializers.SerializerMethodField()
 
     class Meta(BranchHighlightSerializer.Meta):
         fields = BranchHighlightSerializer.Meta.fields + [
@@ -376,7 +390,15 @@ class MapBranchSerializer(BranchHighlightSerializer):
             "latitude",
             "longitude",
             "formattedAddress",
+            "distance_km",
         ]
+
+    def get_distance_km(self, obj: Branch):
+        location = self.context.get("user_location")
+        if location is None:
+            return None
+        distance = branch_distance_km(obj, location)
+        return round(distance, 2)
 
 
 class MapBusinessSerializer(serializers.ModelSerializer):

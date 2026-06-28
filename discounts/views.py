@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .address_utils import get_user_address, promote_next_default_address
+from .location_utils import filter_branches_for_location, filter_offers_for_location, resolve_user_location
 from .models import Address, Branch, Category, Offer, OfferRedemption, UserPreferences
 from .offer_utils import (
     active_offer_q,
@@ -26,6 +27,20 @@ from .serializers import (
 User = get_user_model()
 
 
+class UserLocationContextMixin:
+    def get_user_location(self):
+        if not hasattr(self, "_user_location"):
+            self._user_location = resolve_user_location(self.request)
+        return self._user_location
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        location = self.get_user_location()
+        if location is not None:
+            context["user_location"] = location
+        return context
+
+
 class UserOfferUsageContextMixin:
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -45,7 +60,9 @@ class CategoriesListAPIView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
 
-class OffersListAPIView(UserOfferUsageContextMixin, generics.ListAPIView):
+class OffersListAPIView(
+    UserLocationContextMixin, UserOfferUsageContextMixin, generics.ListAPIView
+):
     serializer_class = OfferSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -63,10 +80,15 @@ class OffersListAPIView(UserOfferUsageContextMixin, generics.ListAPIView):
         if branch_id:
             queryset = queryset.filter(branches__id=branch_id)
 
+        location = self.get_user_location()
+        if location is not None:
+            queryset, _ = filter_offers_for_location(queryset, location)
+            return queryset
+
         return queryset.order_by("-discount_percent", "-id").distinct()
 
 
-class MapBranchesAPIView(generics.ListAPIView):
+class MapBranchesAPIView(UserLocationContextMixin, generics.ListAPIView):
     serializer_class = MapBranchSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -78,6 +100,11 @@ class MapBranchesAPIView(generics.ListAPIView):
         category_id = self.request.query_params.get("category_id")
         if category_id:
             queryset = queryset.filter(business__category_id=category_id)
+
+        location = self.get_user_location()
+        if location is not None:
+            queryset, _ = filter_branches_for_location(queryset, location)
+            return queryset
 
         return queryset.order_by("-highest_discount_percent", "name")
 
