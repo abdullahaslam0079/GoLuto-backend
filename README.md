@@ -16,8 +16,31 @@ python manage.py runserver
 
 ## API docs
 
-- OpenAPI: `http://127.0.0.1:8000/api/schema/`
-- Swagger: `http://127.0.0.1:8000/api/docs/`
+- **Production Swagger:** https://goluto-backend.onrender.com/api/docs/
+- **Production OpenAPI:** https://goluto-backend.onrender.com/api/schema/
+- Local OpenAPI: `http://127.0.0.1:8000/api/schema/`
+- Local Swagger: `http://127.0.0.1:8000/api/docs/`
+
+## Postman
+
+Share these files with anyone testing the API:
+
+| File | Purpose |
+|------|---------|
+| [`postman/GoLuto-API.postman_collection.json`](postman/GoLuto-API.postman_collection.json) | All endpoints, sample bodies, auto-save JWT on login |
+| [`postman/GoLuto-Production.postman_environment.json`](postman/GoLuto-Production.postman_environment.json) | `base_url` → production |
+| [`postman/GoLuto-Local.postman_environment.json`](postman/GoLuto-Local.postman_environment.json) | `base_url` → local dev server |
+
+**Import in Postman**
+
+1. **Import** → drag the collection + environment JSON files (or **Link** → `https://goluto-backend.onrender.com/api/schema/` to import from OpenAPI only).
+2. Select **GoLuto — Production** (top-right environment dropdown).
+3. Run **Auth — Consumer → Login** or **Auth — Business → Login** — the access token is saved automatically.
+4. Call endpoints in **Public**, **Consumer**, or **Business** folders.
+
+**Test accounts (after seed):** consumer `testuser@example.com` / `testpass123`; business `demo-<slug>@goluto.app` / `DemoPass123!`
+
+Regenerate the collection after endpoint changes: `python3 postman/generate_collection.py`
 
 ## Auth (JWT)
 
