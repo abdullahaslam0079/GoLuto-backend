@@ -79,9 +79,11 @@ Locally you can always run: `python manage.py createsuperuser`
 
 `python manage.py migrate --noinput && python manage.py ensure_superuser && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
 
-Do **not** include `seed_test_data` — that command was removed.
+Do **not** rely on `seed_test_data` for data — it is a deprecated no-op kept only so older start commands do not fail deploys. Prefer updating Start Command to remove it entirely:
 
-If deploy fails with `Unknown command: 'seed_test_data'`, update Start Command in the Render dashboard (Settings → Start Command), save, then redeploy.
+`python manage.py migrate --noinput && python manage.py ensure_superuser && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
+
+If deploy fails with `Unknown command: 'seed_test_data'`, push the latest code (includes the no-op command) or update Start Command in the Render dashboard, then redeploy.
 
 After deploy, **Logs** should mention `Created superuser`, `Promoted`, or `Synced password`. If you only see Gunicorn lines, the command above is not running.
 

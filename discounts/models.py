@@ -219,6 +219,12 @@ class OfferRedemption(models.Model):
 
     class Meta:
         ordering = ["-redeemed_at"]
+        indexes = [
+            models.Index(
+                fields=["user", "offer", "redeemed_at"],
+                name="offer_redemp_user_offer_idx",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"Redemption<{self.offer_id}@{self.branch_id}>"
