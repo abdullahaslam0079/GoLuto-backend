@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "4d2cbbc2-9460-40dc-943b-b19e7e28cf85",
+    "_postman_id": "1eb3ae09-066a-47f1-bb92-e6655059a929",
     "name": "GoLuto API",
-    "description": "Discount Discovery API \u2014 categories, offers, map, consumer & business accounts.\n\n**Quick start**\n1. Import `GoLuto-Production.postman_environment.json` (or Local).\n2. Select the environment in Postman.\n3. Run **Auth \u2192 Consumer Login** or **Business Login** to store JWT tokens.\n4. Call protected endpoints in the Consumer / Business folders.\n\n**Live docs:** https://goluto-backend.onrender.com/api/docs/\n**OpenAPI schema:** https://goluto-backend.onrender.com/api/schema/\n\n**Seed credentials (production):**\n- Consumer: `testuser@example.com` / `testpass123`\n- Business: `demo-<slug>@goluto.app` / `DemoPass123!`",
+    "description": "Discount Discovery API \u2014 categories, offers, map, consumer & business accounts.\n\n**Quick start**\n1. Import `GoLuto-Production.postman_environment.json` (or Local).\n2. Select the environment in Postman.\n3. Run **Auth \u2192 Consumer Login** or **Business Login** to store JWT tokens.\n4. Call protected endpoints in the Consumer / Business folders.\n\n**Live docs:** https://goluto-backend.onrender.com/api/docs/\n**OpenAPI schema:** https://goluto-backend.onrender.com/api/schema/",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -100,7 +100,7 @@
             "description": "Returns JWT access token. Saves token to environment automatically.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"testpass123\"\n}",
+              "raw": "{\n  \"email\": \"consumer@example.com\",\n  \"password\": \"your-password\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -195,6 +195,40 @@
           }
         },
         {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Invalidates refresh tokens for the user. Discard the access token on the client.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{consumer_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "Forgot Password",
           "request": {
             "method": "POST",
@@ -219,7 +253,7 @@
             "description": "",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"testuser@example.com\"\n}",
+              "raw": "{\n  \"email\": \"consumer@example.com\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -327,7 +361,7 @@
             "description": "Business JWT. Saves token to environment automatically.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"demo-burger-express@goluto.app\",\n  \"password\": \"DemoPass123!\"\n}",
+              "raw": "{\n  \"email\": \"business@example.com\",\n  \"password\": \"your-password\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -352,6 +386,41 @@
               }
             }
           ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/business/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "business",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Invalidates refresh tokens for the business user. Discard the access token on the client.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{business_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
         }
       ],
       "description": ""
@@ -542,6 +611,36 @@
               ]
             },
             "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{consumer_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Availed Offers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/user/offers/availed",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "user",
+                "offers",
+                "availed"
+              ]
+            },
+            "description": "All offers the user has redeemed, newest first, with branch details.",
             "auth": {
               "type": "bearer",
               "bearer": [

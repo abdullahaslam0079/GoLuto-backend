@@ -26,6 +26,7 @@ from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 from discounts.views_auth import (
     ForgotPasswordAPIView,
     LoginAPIView,
+    LogoutAPIView,
     RegisterAPIView,
     ResetPasswordAPIView,
 )
@@ -40,6 +41,7 @@ urlpatterns = [
     ),
     path("api/auth/register", RegisterAPIView.as_view(), name="auth-register"),
     path("api/auth/token", LoginAPIView.as_view(), name="auth-token"),
+    path("api/auth/logout", LogoutAPIView.as_view(), name="auth-logout"),
     path(
         "api/auth/token/refresh",
         TokenRefreshView.as_view(),
@@ -70,7 +72,7 @@ def _uses_local_media_storage() -> bool:
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 elif _uses_local_media_storage():
-    # Render runs with DEBUG=False; seed_test_data writes uploads to the local disk.
+    # Render runs with DEBUG=False; uploaded media is served from the local disk.
     urlpatterns += [
         re_path(
             r"^media/(?P<path>.*)$",

@@ -10,7 +10,6 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env        # optional: set SECRET_KEY / DEBUG
 python manage.py migrate
-python manage.py seed_test_data   # optional: loads sample categories, businesses, offers
 python manage.py runserver
 ```
 
@@ -38,8 +37,6 @@ Share these files with anyone testing the API:
 3. Run **Auth — Consumer → Login** or **Auth — Business → Login** — the access token is saved automatically.
 4. Call endpoints in **Public**, **Consumer**, or **Business** folders.
 
-**Test accounts (after seed):** consumer `testuser@example.com` / `testpass123`; business `demo-<slug>@goluto.app` / `DemoPass123!`
-
 Regenerate the collection after endpoint changes: `python3 postman/generate_collection.py`
 
 ## Auth (JWT)
@@ -61,26 +58,7 @@ Regenerate the collection after endpoint changes: `python3 postman/generate_coll
    - `ALLOWED_HOSTS` optional — if unset on Render, `RENDER_EXTERNAL_HOSTNAME` is used when `RENDER` is set (see `config/settings.py`).
 
 **Build command:** `pip install -r requirements.txt && python manage.py collectstatic --noinput`  
-**Start command:** `python manage.py migrate --noinput && python manage.py ensure_superuser && python manage.py seed_test_data && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
-
-### Test / sample data
-
-Run locally:
-
-```bash
-python manage.py seed_test_data
-```
-
-On Render, set **`SEED_TEST_DATA=True`** on the web service (included in `render.yaml`). Each deploy runs seed after migrate (idempotent — safe to re-run).
-
-| Item | Details |
-|------|---------|
-| Categories | Food, Fashion, Electronics |
-| Businesses | Burger Hub, Style Corner, Gadget Point (Karachi-area coords) |
-| Offers | Lunch Deal (30%), Weekend Fashion Sale (25%, active), Flash Electronics (40%, expired) |
-| Test app user | `testuser@example.com` / `testpass123` (JWT login, not admin) |
-
-Remove **`SEED_TEST_DATA`** from production when you no longer want sample data re-applied on restart.
+**Start command:** `python manage.py migrate --noinput && python manage.py ensure_superuser && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
 
 ### Django admin without Shell (Render free tier)
 
@@ -99,7 +77,7 @@ Locally you can always run: `python manage.py createsuperuser`
 
 **Render:** In the web service **Settings**, check **Start Command**. If it was set manually, it overrides `render.yaml` and must include:
 
-`python manage.py migrate --noinput && python manage.py ensure_superuser && python manage.py seed_test_data && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
+`python manage.py migrate --noinput && python manage.py ensure_superuser && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
 
 After deploy, **Logs** should mention `Created superuser`, `Promoted`, or `Synced password`. If you only see Gunicorn lines, the command above is not running.
 

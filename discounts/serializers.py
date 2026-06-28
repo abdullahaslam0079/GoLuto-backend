@@ -7,7 +7,16 @@ from rest_framework import serializers
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Address, Branch, Business, Category, Offer, PasswordResetToken, UserPreferences
+from .models import (
+    Address,
+    Branch,
+    Business,
+    Category,
+    Offer,
+    OfferRedemption,
+    PasswordResetToken,
+    UserPreferences,
+)
 from .offer_utils import (
     UserOfferUsageStatus,
     build_media_url,
@@ -200,6 +209,64 @@ class OfferSerializer(serializers.ModelSerializer):
         if request:
             return request.build_absolute_uri(obj.image.url)
         return obj.image.url
+
+
+class AvailedOfferBranchSerializer(serializers.ModelSerializer):
+    business_id = serializers.IntegerField(source="business.id", read_only=True)
+    business_name = serializers.CharField(source="business.name", read_only=True)
+    formattedAddress = serializers.CharField(source="formatted_address", read_only=True)
+
+    class Meta:
+        model = Branch
+        fields = [
+            "id",
+            "name",
+            "business_id",
+            "business_name",
+            "formattedAddress",
+            "latitude",
+            "longitude",
+        ]
+
+
+class AvailedOfferSummarySerializer(serializers.ModelSerializer):
+    business_id = serializers.IntegerField(source="business.id", read_only=True)
+    business_name = serializers.CharField(source="business.name", read_only=True)
+    category_id = serializers.IntegerField(source="business.category.id", read_only=True)
+    category_name = serializers.CharField(
+        source="business.category.name", read_only=True
+    )
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Offer
+        fields = [
+            "id",
+            "business_id",
+            "business_name",
+            "category_id",
+            "category_name",
+            "offer_type",
+            "title",
+            "description",
+            "image_url",
+            "discount_percent",
+            "item_name",
+            "original_price",
+            "discounted_price",
+        ]
+
+    def get_image_url(self, obj: Offer) -> str | None:
+        return build_media_url(self.context.get("request"), obj.image)
+
+
+class UserAvailedOfferSerializer(serializers.ModelSerializer):
+    offer = AvailedOfferSummarySerializer(read_only=True)
+    branch = AvailedOfferBranchSerializer(read_only=True)
+
+    class Meta:
+        model = OfferRedemption
+        fields = ["id", "redeemed_at", "offer", "branch"]
 
 
 class OfferUsageSerializer(serializers.Serializer):

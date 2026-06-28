@@ -42,6 +42,33 @@ else:
 
 AUTH_USER_MODEL = "discounts.User"
 
+if os.environ.get("CORS_ALLOWED_ORIGINS", "").strip():
+    CORS_ALLOWED_ORIGINS = [
+        origin.strip()
+        for origin in os.environ["CORS_ALLOWED_ORIGINS"].split(",")
+        if origin.strip()
+    ]
+else:
+    CORS_ALLOWED_ORIGINS = []
+
+# Flutter web dev server runs on random localhost ports.
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://localhost:\d+$",
+    r"^http://127\.0\.0\.1:\d+$",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+
 
 # Application definition
 
@@ -52,6 +79,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
     "drf_spectacular",
@@ -60,6 +88,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

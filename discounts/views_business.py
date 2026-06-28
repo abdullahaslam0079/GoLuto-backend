@@ -1,13 +1,14 @@
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from django.utils import timezone
-
+from .auth_utils import blacklist_user_tokens, logout_response_message
 from .models import Branch, Offer, OfferRedemption, OfferScan
 from .offer_utils import (
     branch_highlight_queryset,
@@ -53,6 +54,31 @@ class BusinessRegisterAPIView(generics.CreateAPIView):
 class BusinessLoginAPIView(TokenObtainPairView):
     authentication_classes = []
     serializer_class = BusinessLoginTokenObtainPairSerializer
+
+
+class BusinessLogoutAPIView(APIView):
+    permission_classes = [IsBusinessAccount]
+
+    def post(self, request):
+        refresh = request.data.get("refresh")
+        try:
+            blacklist_user_tokens(request.user, refresh=refresh or None)
+        except TokenError:
+            return Response(
+                {
+                    "message": "Invalid or expired token.",
+                    "errors": {"refresh": ["Invalid or expired token."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "message": logout_response_message(refresh),
+                "errors": {},
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class BusinessProfileAPIView(APIView):

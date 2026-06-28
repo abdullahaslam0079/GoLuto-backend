@@ -1,8 +1,11 @@
 from django.contrib.auth import get_user_model
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from .auth_utils import blacklist_user_tokens, logout_response_message
 from .password_reset import request_password_reset
 from .serializers import (
     ForgotPasswordSerializer,
@@ -17,6 +20,40 @@ User = get_user_model()
 class LoginAPIView(TokenObtainPairView):
     authentication_classes = []
     serializer_class = LoginTokenObtainPairSerializer
+
+
+class LogoutAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if request.user.account_type != User.AccountType.CONSUMER:
+            return Response(
+                {
+                    "message": "Consumer account required.",
+                    "errors": {"detail": ["Consumer account required."]},
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        refresh = request.data.get("refresh")
+        try:
+            blacklist_user_tokens(request.user, refresh=refresh or None)
+        except TokenError:
+            return Response(
+                {
+                    "message": "Invalid or expired token.",
+                    "errors": {"refresh": ["Invalid or expired token."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "message": logout_response_message(refresh),
+                "errors": {},
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class RegisterAPIView(generics.CreateAPIView):

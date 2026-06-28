@@ -195,3 +195,99 @@ class OfferRedeemAPITests(APITestCase):
         self.assertEqual(response.data["user_redemption_count"], 1)
         self.assertEqual(response.data["user_remaining_uses"], 0)
         self.assertFalse(response.data["is_available_for_user"])
+
+
+class LogoutAndAvailedOffersAPITests(APITestCase):
+    def setUp(self):
+        self.consumer = User.objects.create_user(
+            email="consumer@example.com",
+            password="testpass123",
+            account_type=User.AccountType.CONSUMER,
+        )
+        self.business_user = User.objects.create_user(
+            email="owner@example.com",
+            password="testpass123",
+            account_type=User.AccountType.BUSINESS,
+        )
+        self.category = Category.objects.create(name="Food")
+        self.business = Business.objects.create(
+            owner=self.business_user,
+            name="Test Cafe",
+            category=self.category,
+        )
+        self.branch_a = Branch.objects.create(
+            business=self.business,
+            name="Branch A",
+            street="Main",
+            house_number="1",
+            postal_code="10001",
+            city="Berlin",
+            latitude=Decimal("52.520008"),
+            longitude=Decimal("13.404954"),
+        )
+        self.branch_b = Branch.objects.create(
+            business=self.business,
+            name="Branch B",
+            street="Side",
+            house_number="2",
+            postal_code="10002",
+            city="Berlin",
+            latitude=Decimal("52.530008"),
+            longitude=Decimal("13.414954"),
+        )
+        self.offer = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Lunch Deal",
+            description="10% off",
+            discount_percent=Decimal("10.00"),
+            usage_limit_type=Offer.UsageLimitType.N_TIMES_TOTAL,
+            usage_limit_count=5,
+        )
+        self.offer.branches.set([self.branch_a, self.branch_b])
+
+    def test_consumer_logout_blacklists_tokens(self):
+        login = self.client.post(
+            "/api/auth/token",
+            {"email": "consumer@example.com", "password": "testpass123"},
+            format="json",
+        )
+        access = login.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+
+        response = self.client.post("/api/auth/logout", format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("Logged out successfully", response.data["message"])
+
+    def test_availed_offers_returns_newest_first_with_branch(self):
+        older = OfferRedemption.objects.create(
+            offer=self.offer,
+            branch=self.branch_a,
+            user=self.consumer,
+        )
+        newer = OfferRedemption.objects.create(
+            offer=self.offer,
+            branch=self.branch_b,
+            user=self.consumer,
+        )
+        OfferRedemption.objects.filter(pk=older.pk).update(
+            redeemed_at=timezone.now() - timedelta(days=2)
+        )
+
+        self.client.force_authenticate(user=self.consumer)
+        response = self.client.get("/api/user/offers/availed")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data["results"]
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]["id"], newer.id)
+        self.assertEqual(results[0]["branch"]["id"], self.branch_b.id)
+        self.assertEqual(results[0]["branch"]["name"], "Branch B")
+        self.assertEqual(results[1]["id"], older.id)
+        self.assertEqual(results[1]["branch"]["id"], self.branch_a.id)
+        self.assertEqual(results[0]["offer"]["title"], "Lunch Deal")
+
+    def test_availed_offers_requires_consumer_account(self):
+        self.client.force_authenticate(user=self.business_user)
+        response = self.client.get("/api/user/offers/availed")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

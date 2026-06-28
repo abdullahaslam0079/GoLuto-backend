@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .address_utils import get_user_address, promote_next_default_address
-from .models import Address, Branch, Category, Offer, UserPreferences
+from .models import Address, Branch, Category, Offer, OfferRedemption, UserPreferences
 from .offer_utils import (
     active_offer_q,
     branch_highlight_queryset,
@@ -19,6 +19,7 @@ from .serializers import (
     MapBranchSerializer,
     OfferSerializer,
     OfferUsageSerializer,
+    UserAvailedOfferSerializer,
     UserPreferencesSerializer,
 )
 
@@ -113,6 +114,47 @@ class BranchOffersAPIView(UserOfferUsageContextMixin, generics.ListAPIView):
             .filter(branches__id=branch_id)
         )
         return filter_active_offers(queryset).order_by("-discount_percent", "-id").distinct()
+
+
+class UserAvailedOffersAPIView(generics.ListAPIView):
+    serializer_class = UserAvailedOfferSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.account_type != User.AccountType.CONSUMER:
+            return OfferRedemption.objects.none()
+
+        return (
+            OfferRedemption.objects.filter(user=self.request.user)
+            .select_related(
+                "offer",
+                "offer__business",
+                "offer__business__category",
+                "branch",
+                "branch__business",
+            )
+            .order_by("-redeemed_at", "-id")
+        )
+
+    def list(self, request, *args, **kwargs):
+        if request.user.account_type != User.AccountType.CONSUMER:
+            return Response(
+                {
+                    "message": "Consumer account required.",
+                    "errors": {"detail": ["Consumer account required."]},
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(
+            {
+                "message": "Availed offers retrieved successfully.",
+                "errors": {},
+                "results": serializer.data,
+            }
+        )
 
 
 class OfferUsageAPIView(APIView):

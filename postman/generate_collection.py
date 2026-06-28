@@ -118,10 +118,7 @@ collection = {
             "3. Run **Auth → Consumer Login** or **Business Login** to store JWT tokens.\n"
             "4. Call protected endpoints in the Consumer / Business folders.\n\n"
             "**Live docs:** https://goluto-backend.onrender.com/api/docs/\n"
-            "**OpenAPI schema:** https://goluto-backend.onrender.com/api/schema/\n\n"
-            "**Seed credentials (production):**\n"
-            "- Consumer: `testuser@example.com` / `testpass123`\n"
-            "- Business: `demo-<slug>@goluto.app` / `DemoPass123!`"
+            "**OpenAPI schema:** https://goluto-backend.onrender.com/api/schema/"
         ),
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     },
@@ -156,8 +153,8 @@ collection = {
                     "POST",
                     "api/auth/token",
                     body={
-                        "email": "testuser@example.com",
-                        "password": "testpass123",
+                        "email": "consumer@example.com",
+                        "password": "your-password",
                     },
                     description="Returns JWT access token. Saves token to environment automatically.",
                     test=CONSUMER_LOGIN_TEST,
@@ -176,10 +173,17 @@ collection = {
                     body={"token": "{{consumer_token}}"},
                 ),
                 req(
+                    "Logout",
+                    "POST",
+                    "api/auth/logout",
+                    auth_bearer="{{consumer_token}}",
+                    description="Invalidates refresh tokens for the user. Discard the access token on the client.",
+                ),
+                req(
                     "Forgot Password",
                     "POST",
                     "api/auth/password/forgot",
-                    body={"email": "testuser@example.com"},
+                    body={"email": "consumer@example.com"},
                 ),
                 req(
                     "Reset Password",
@@ -214,11 +218,18 @@ collection = {
                     "POST",
                     "api/business/auth/token",
                     body={
-                        "email": "demo-burger-express@goluto.app",
-                        "password": "DemoPass123!",
+                        "email": "business@example.com",
+                        "password": "your-password",
                     },
                     description="Business JWT. Saves token to environment automatically.",
                     test=BUSINESS_LOGIN_TEST,
+                ),
+                req(
+                    "Logout",
+                    "POST",
+                    "api/business/auth/logout",
+                    auth_bearer="{{business_token}}",
+                    description="Invalidates refresh tokens for the business user. Discard the access token on the client.",
                 ),
             ],
         ),
@@ -269,6 +280,13 @@ collection = {
                     "GET",
                     "api/offers/{{offer_id}}/usage",
                     auth_bearer="{{consumer_token}}",
+                ),
+                req(
+                    "List Availed Offers",
+                    "GET",
+                    "api/user/offers/availed",
+                    auth_bearer="{{consumer_token}}",
+                    description="All offers the user has redeemed, newest first, with branch details.",
                 ),
                 req(
                     "Scan Offer",

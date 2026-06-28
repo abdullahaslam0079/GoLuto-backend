@@ -10,12 +10,14 @@ from .views import (
     OffersListAPIView,
     UserAddressDetailAPIView,
     UserAddressesAPIView,
+    UserAvailedOffersAPIView,
     UserPreferencesAPIView,
 )
 from .views_business import (
     BusinessBranchDetailAPIView,
     BusinessBranchListCreateAPIView,
     BusinessLoginAPIView,
+    BusinessLogoutAPIView,
     BusinessOfferDetailAPIView,
     BusinessOfferListCreateAPIView,
     BusinessProfileAPIView,
@@ -54,6 +56,11 @@ urlpatterns = [
         OfferUsageAPIView.as_view(),
         name="offer-usage",
     ),
+    path(
+        "user/offers/availed",
+        UserAvailedOffersAPIView.as_view(),
+        name="user-availed-offers",
+    ),
     path("user/preferences", UserPreferencesAPIView.as_view(), name="user-preferences"),
     path("user/addresses", UserAddressesAPIView.as_view(), name="user-addresses"),
     path(
@@ -70,6 +77,11 @@ urlpatterns = [
         "business/auth/token",
         BusinessLoginAPIView.as_view(),
         name="business-auth-token",
+    ),
+    path(
+        "business/auth/logout",
+        BusinessLogoutAPIView.as_view(),
+        name="business-auth-logout",
     ),
     path("business/profile", BusinessProfileAPIView.as_view(), name="business-profile"),
     path(
