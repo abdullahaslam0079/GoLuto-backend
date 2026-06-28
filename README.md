@@ -75,9 +75,13 @@ If that email was already used for a normal signup via the API, the command **pr
 
 Locally you can always run: `python manage.py createsuperuser`
 
-**Render:** In the web service **Settings**, check **Start Command**. If it was set manually, it overrides `render.yaml` and must include:
+**Render:** In the web service **Settings**, check **Start Command**. If it was set manually, it overrides `render.yaml` and must be:
 
 `python manage.py migrate --noinput && python manage.py ensure_superuser && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
+
+Do **not** include `seed_test_data` — that command was removed.
+
+If deploy fails with `Unknown command: 'seed_test_data'`, update Start Command in the Render dashboard (Settings → Start Command), save, then redeploy.
 
 After deploy, **Logs** should mention `Created superuser`, `Promoted`, or `Synced password`. If you only see Gunicorn lines, the command above is not running.
 
