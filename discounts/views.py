@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -7,6 +8,7 @@ from rest_framework.views import APIView
 from .address_utils import get_user_address, promote_next_default_address
 from .location_utils import filter_branches_for_location, filter_offers_for_location, resolve_user_location
 from .models import Address, Branch, Category, Offer, OfferRedemption, UserPreferences
+from .offer_pricing import compute_offer_payment
 from .offer_utils import (
     active_offer_q,
     branch_highlight_queryset,
@@ -14,10 +16,15 @@ from .offer_utils import (
     filter_active_offers,
     get_user_offer_usage_status,
 )
+from .permissions import IsConsumerAccount
 from .serializers import (
     AddressSerializer,
     CategorySerializer,
     MapBranchSerializer,
+    OfferPaymentPreviewRequestSerializer,
+    OfferPaymentPreviewSerializer,
+    OfferQRBranchSerializer,
+    OfferQRSummarySerializer,
     OfferSerializer,
     OfferUsageSerializer,
     UserAvailedOfferSerializer,
@@ -216,6 +223,135 @@ class OfferUsageAPIView(APIView):
                 **serializer.data,
             }
         )
+
+
+class OfferPaymentPreviewAPIView(APIView):
+    permission_classes = [IsConsumerAccount]
+
+    def post(self, request, offer_id):
+        offer = get_object_or_404(Offer, pk=offer_id)
+        serializer = OfferPaymentPreviewRequestSerializer(
+            data=request.data,
+            context={"offer": offer},
+        )
+        serializer.is_valid(raise_exception=True)
+        payment = serializer.validated_data["payment"]
+        payment_data = OfferPaymentPreviewSerializer.from_preview(payment).data
+        return Response(
+            {
+                "message": "Payment preview calculated successfully.",
+                "errors": {},
+                "offer_id": offer.id,
+                "payment": payment_data,
+            }
+        )
+
+
+class OfferByQRAPIView(APIView):
+    """Resolve a poster QR code to offer + branch context and payment preview."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, qr_code):
+        offer = (
+            Offer.objects.select_related("business", "business__category")
+            .filter(qr_code=qr_code)
+            .first()
+        )
+        if offer is None:
+            return Response(
+                {
+                    "message": "Offer not found.",
+                    "errors": {"qr_code": ["Invalid or unknown QR code."]},
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        branch_id = request.query_params.get("branch_id")
+        if not branch_id:
+            return Response(
+                {
+                    "message": "Branch is required.",
+                    "errors": {"branch_id": ["branch_id query parameter is required."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        branch = Branch.objects.select_related("business").filter(pk=branch_id).first()
+        if branch is None:
+            return Response(
+                {
+                    "message": "Branch not found.",
+                    "errors": {"branch_id": ["Branch not found."]},
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not offer.branches.filter(pk=branch.pk).exists():
+            return Response(
+                {
+                    "message": "This offer is not available at this branch.",
+                    "errors": {"branch_id": ["This offer is not available at this branch."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not offer.is_active:
+            return Response(
+                {
+                    "message": "This offer is not currently active.",
+                    "errors": {"detail": ["This offer is not currently active."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        bill_amount = request.query_params.get("bill_amount")
+        if bill_amount is not None:
+            preview_serializer = OfferPaymentPreviewRequestSerializer(
+                data={"bill_amount": bill_amount},
+                context={"offer": offer},
+            )
+            if not preview_serializer.is_valid():
+                return Response(
+                    {
+                        "message": "Unable to calculate payment.",
+                        "errors": preview_serializer.errors,
+                        "offer": OfferQRSummarySerializer(
+                            offer, context={"request": request}
+                        ).data,
+                        "branch": OfferQRBranchSerializer(branch).data,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            payment = preview_serializer.validated_data["payment"]
+        else:
+            payment = compute_offer_payment(offer)
+
+        payment_data = OfferPaymentPreviewSerializer.from_preview(payment).data
+        offer_data = OfferQRSummarySerializer(offer, context={"request": request}).data
+        branch_data = OfferQRBranchSerializer(branch).data
+
+        response_payload = {
+            "message": "Offer retrieved successfully.",
+            "errors": {},
+            "offer": offer_data,
+            "branch": branch_data,
+            "payment": payment_data,
+            "can_avail": False,
+        }
+
+        user = request.user
+        if (
+            user.is_authenticated
+            and user.account_type == User.AccountType.CONSUMER
+        ):
+            usage = get_user_offer_usage_status(user, offer)
+            response_payload["can_avail"] = usage.is_available_for_user
+            response_payload.update(
+                OfferUsageSerializer.from_usage(offer.id, usage).data
+            )
+
+        return Response(response_payload)
 
 
 class UserPreferencesAPIView(APIView):

@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "1eb3ae09-066a-47f1-bb92-e6655059a929",
+    "_postman_id": "59ba23cc-fca9-41d2-bc01-7bf48f5af572",
     "name": "GoLuto API",
     "description": "Discount Discovery API \u2014 categories, offers, map, consumer & business accounts.\n\n**Quick start**\n1. Import `GoLuto-Production.postman_environment.json` (or Local).\n2. Select the environment in Postman.\n3. Run **Auth \u2192 Consumer Login** or **Business Login** to store JWT tokens.\n4. Call protected endpoints in the Consumer / Business folders.\n\n**Live docs:** https://goluto-backend.onrender.com/api/docs/\n**OpenAPI schema:** https://goluto-backend.onrender.com/api/schema/",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -654,6 +654,80 @@
           }
         },
         {
+          "name": "Resolve Poster QR",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/offers/by-qr/{{qr_code}}?branch_id={{branch_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "offers",
+                "by-qr",
+                "{{qr_code}}?branch_id={{branch_id}}"
+              ]
+            },
+            "description": "Poster QR flow: resolve offer + branch + payment. Add &bill_amount=80.00 for percentage offers. No business dashboard needed.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{consumer_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Payment Preview",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/offers/{{offer_id}}/payment-preview",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "offers",
+                "{{offer_id}}",
+                "payment-preview"
+              ]
+            },
+            "description": "Preview amount to pay before scanning. bill_amount required for percentage_bill offers; omit for item offers.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bill_amount\": \"80.00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{consumer_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "Scan Offer",
           "request": {
             "method": "POST",
@@ -675,10 +749,54 @@
                 "scan"
               ]
             },
-            "description": "Get qr_code from an offer list/detail response first.",
+            "description": "Get qr_code from an offer list/detail response first. bill_amount required for percentage_bill offers. Response includes payment.amount_to_pay.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"branch_id\": \"{{branch_id}}\",\n  \"qr_code\": \"{{qr_code}}\"\n}",
+              "raw": "{\n  \"branch_id\": \"{{branch_id}}\",\n  \"qr_code\": \"{{qr_code}}\",\n  \"bill_amount\": \"80.00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{consumer_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Avail Offer (Poster QR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/offers/{{offer_id}}/avail",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "offers",
+                "{{offer_id}}",
+                "avail"
+              ]
+            },
+            "description": "Single-step poster flow: scan + redeem. Customer shows payment.summary screen at counter. bill_amount required for percentage offers.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch_id\": \"{{branch_id}}\",\n  \"qr_code\": \"{{qr_code}}\",\n  \"bill_amount\": \"80.00\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -719,10 +837,10 @@
                 "redeem"
               ]
             },
-            "description": "",
+            "description": "bill_amount required for percentage_bill offers. Response includes payment.amount_to_pay.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"branch_id\": \"{{branch_id}}\",\n  \"qr_code\": \"{{qr_code}}\"\n}",
+              "raw": "{\n  \"branch_id\": \"{{branch_id}}\",\n  \"qr_code\": \"{{qr_code}}\",\n  \"bill_amount\": \"80.00\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

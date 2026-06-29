@@ -8,7 +8,7 @@ from typing import Any
 from django.db.models import F, Max, Prefetch, Q
 from django.utils import timezone
 
-from .models import Offer, OfferBranchStats, OfferRedemption
+from .models import Offer, OfferBranchStats, OfferRedemption, OfferScan
 
 
 def active_offer_q(now=None, prefix=""):
@@ -245,6 +245,15 @@ def can_user_redeem_offer(user, offer, branch):
     return True, ""
 
 
+def payment_record_fields(payment) -> dict:
+    return {
+        "bill_amount": payment.bill_amount,
+        "original_amount": payment.original_amount,
+        "discount_amount": payment.discount_amount,
+        "amount_to_pay": payment.amount_to_pay,
+    }
+
+
 def increment_branch_stat(offer, branch, *, scan=False, avail=False):
     stats, _ = OfferBranchStats.objects.get_or_create(offer=offer, branch=branch)
     if scan:
@@ -255,6 +264,25 @@ def increment_branch_stat(offer, branch, *, scan=False, avail=False):
         OfferBranchStats.objects.filter(pk=stats.pk).update(
             avail_count=F("avail_count") + 1
         )
+
+
+def record_offer_redemption(user, offer, branch, payment, *, record_scan=False):
+    locked_offer = Offer.objects.select_for_update().get(pk=offer.pk)
+    can_redeem, message = can_user_redeem_offer(user, locked_offer, branch)
+    if not can_redeem:
+        return None, message
+
+    fields = payment_record_fields(payment)
+    if record_scan:
+        OfferScan.objects.create(
+            offer=locked_offer, branch=branch, user=user, **fields
+        )
+        increment_branch_stat(locked_offer, branch, scan=True)
+    OfferRedemption.objects.create(
+        offer=locked_offer, branch=branch, user=user, **fields
+    )
+    increment_branch_stat(locked_offer, branch, avail=True)
+    return get_user_offer_usage_status(user, locked_offer), ""
 
 
 def get_highest_discount_active_offer(branch, now=None):

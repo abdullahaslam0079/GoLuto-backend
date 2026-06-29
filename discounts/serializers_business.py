@@ -8,6 +8,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .fields import OptionalImageField
 from .models import Branch, Business, Category, Offer, OfferBranchStats
+from .offer_pricing import compute_offer_payment
 from .offer_utils import can_user_redeem_offer
 from .serializers import BranchHighlightSerializer, CategorySerializer
 
@@ -501,11 +502,21 @@ class OfferScanSerializer(serializers.Serializer):
             "invalid": "Enter a valid QR code.",
         }
     )
+    bill_amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        error_messages={
+            "invalid": "Enter a valid bill amount.",
+        },
+    )
 
     def validate(self, attrs):
         offer = self.context["offer"]
         branch = attrs["branch"]
         qr_code = attrs["qr_code"]
+        bill_amount = attrs.get("bill_amount")
 
         if offer.qr_code != qr_code:
             raise serializers.ValidationError({"qr_code": "Invalid QR code for this offer."})
@@ -518,6 +529,27 @@ class OfferScanSerializer(serializers.Serializer):
                 {"branch_id": "This offer is not available at the selected branch."}
             )
 
+        if offer.offer_type == Offer.OfferType.PERCENTAGE_BILL:
+            if bill_amount is None:
+                raise serializers.ValidationError(
+                    {"bill_amount": "Bill amount is required for percentage discounts."}
+                )
+            if bill_amount <= 0:
+                raise serializers.ValidationError(
+                    {"bill_amount": "Bill amount must be greater than zero."}
+                )
+        elif bill_amount is not None:
+            raise serializers.ValidationError(
+                {"bill_amount": "Bill amount is only used for percentage discounts."}
+            )
+
+        payment = compute_offer_payment(offer, bill_amount=bill_amount)
+        if payment.amount_to_pay is None:
+            raise serializers.ValidationError(
+                {"bill_amount": "Unable to calculate payment for this offer."}
+            )
+
+        attrs["payment"] = payment
         return attrs
 
 

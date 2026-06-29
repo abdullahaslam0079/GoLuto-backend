@@ -18,6 +18,7 @@ from .models import (
     PasswordResetToken,
     UserPreferences,
 )
+from .offer_pricing import compute_offer_payment
 from .offer_utils import (
     UserOfferUsageStatus,
     build_media_url,
@@ -300,6 +301,97 @@ class OfferUsageSerializer(serializers.Serializer):
                 **usage.as_dict(),
             }
         )
+
+
+class OfferPaymentPreviewSerializer(serializers.Serializer):
+    offer_type = serializers.CharField()
+    item_name = serializers.CharField(allow_null=True, allow_blank=True)
+    discount_percent = serializers.DecimalField(max_digits=5, decimal_places=2)
+    original_amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, allow_null=True
+    )
+    discount_amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, allow_null=True
+    )
+    amount_to_pay = serializers.DecimalField(
+        max_digits=10, decimal_places=2, allow_null=True
+    )
+    bill_amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, allow_null=True
+    )
+    requires_bill_amount = serializers.BooleanField()
+    summary = serializers.CharField(allow_null=True)
+
+    @classmethod
+    def from_preview(cls, preview):
+        return cls(preview.as_dict())
+
+
+class OfferPaymentPreviewRequestSerializer(serializers.Serializer):
+    bill_amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        error_messages={
+            "invalid": "Enter a valid bill amount.",
+        },
+    )
+
+    def validate(self, attrs):
+        offer = self.context["offer"]
+        bill_amount = attrs.get("bill_amount")
+
+        if offer.offer_type == Offer.OfferType.PERCENTAGE_BILL:
+            if bill_amount is None:
+                raise serializers.ValidationError(
+                    {"bill_amount": "Bill amount is required for percentage discounts."}
+                )
+            if bill_amount <= 0:
+                raise serializers.ValidationError(
+                    {"bill_amount": "Bill amount must be greater than zero."}
+                )
+        elif bill_amount is not None:
+            raise serializers.ValidationError(
+                {"bill_amount": "Bill amount is only used for percentage discounts."}
+            )
+
+        payment = compute_offer_payment(offer, bill_amount=bill_amount)
+        attrs["payment"] = payment
+        return attrs
+
+
+class OfferQRBranchSerializer(serializers.ModelSerializer):
+    business_name = serializers.CharField(source="business.name", read_only=True)
+    formatted_address = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = Branch
+        fields = ["id", "name", "business_name", "formatted_address"]
+
+
+class OfferQRSummarySerializer(serializers.ModelSerializer):
+    business_name = serializers.CharField(source="business.name", read_only=True)
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Offer
+        fields = [
+            "id",
+            "business_name",
+            "title",
+            "description",
+            "offer_type",
+            "discount_percent",
+            "item_name",
+            "original_price",
+            "discounted_price",
+            "image_url",
+            "is_active",
+        ]
+
+    def get_image_url(self, obj: Offer) -> str | None:
+        return build_media_url(self.context.get("request"), obj.image)
 
 
 class BranchTopOfferSerializer(serializers.ModelSerializer):

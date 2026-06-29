@@ -6,6 +6,8 @@ from .views import (
     CategoriesListAPIView,
     MapBranchesAPIView,
     MapBusinessesAPIView,
+    OfferByQRAPIView,
+    OfferPaymentPreviewAPIView,
     OfferUsageAPIView,
     OffersListAPIView,
     UserAddressDetailAPIView,
@@ -22,6 +24,7 @@ from .views_business import (
     BusinessOfferListCreateAPIView,
     BusinessProfileAPIView,
     BusinessRegisterAPIView,
+    OfferAvailAPIView,
     OfferRedeemAPIView,
     OfferScanAPIView,
 )
@@ -42,6 +45,16 @@ urlpatterns = [
         name="branch-offers",
     ),
     path(
+        "offers/by-qr/<uuid:qr_code>",
+        OfferByQRAPIView.as_view(),
+        name="offer-by-qr",
+    ),
+    path(
+        "offers/<int:offer_id>/payment-preview",
+        OfferPaymentPreviewAPIView.as_view(),
+        name="offer-payment-preview",
+    ),
+    path(
         "offers/<int:offer_id>/scan",
         OfferScanAPIView.as_view(),
         name="offer-scan",
@@ -50,6 +63,11 @@ urlpatterns = [
         "offers/<int:offer_id>/redeem",
         OfferRedeemAPIView.as_view(),
         name="offer-redeem",
+    ),
+    path(
+        "offers/<int:offer_id>/avail",
+        OfferAvailAPIView.as_view(),
+        name="offer-avail",
     ),
     path(
         "offers/<int:offer_id>/usage",

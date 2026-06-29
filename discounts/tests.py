@@ -7,7 +7,8 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Address, Branch, Business, Category, Offer, OfferRedemption
+from .models import Address, Branch, Business, Category, Offer, OfferRedemption, OfferScan
+from .offer_pricing import compute_offer_payment
 from .offer_utils import can_user_redeem_offer, get_user_offer_usage_status
 
 User = get_user_model()
@@ -155,6 +156,7 @@ class OfferRedeemAPITests(APITestCase):
             {
                 "branch_id": self.branch.id,
                 "qr_code": str(self.offer.qr_code),
+                "bill_amount": "80.00",
             },
             format="json",
         )
@@ -162,6 +164,9 @@ class OfferRedeemAPITests(APITestCase):
         self.assertEqual(response.data["user_redemption_count"], 1)
         self.assertEqual(response.data["user_remaining_uses"], 0)
         self.assertFalse(response.data["is_available_for_user"])
+        self.assertEqual(response.data["payment"]["amount_to_pay"], "72.00")
+        self.assertEqual(response.data["payment"]["original_amount"], "80.00")
+        self.assertEqual(response.data["payment"]["discount_amount"], "8.00")
 
     def test_second_redeem_is_rejected(self):
         self.client.post(
@@ -169,6 +174,7 @@ class OfferRedeemAPITests(APITestCase):
             {
                 "branch_id": self.branch.id,
                 "qr_code": str(self.offer.qr_code),
+                "bill_amount": "80.00",
             },
             format="json",
         )
@@ -177,6 +183,7 @@ class OfferRedeemAPITests(APITestCase):
             {
                 "branch_id": self.branch.id,
                 "qr_code": str(self.offer.qr_code),
+                "bill_amount": "80.00",
             },
             format="json",
         )
@@ -474,3 +481,211 @@ class LocationFilteringAPITests(APITestCase):
         titles = [offer["title"] for offer in response.data]
         self.assertIn("Suburban Deal", titles)
         self.assertNotIn("Munich Deal", titles)
+
+
+class OfferPaymentTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner@example.com",
+            password="testpass123",
+            account_type=User.AccountType.BUSINESS,
+        )
+        self.category = Category.objects.create(name="Food")
+        self.business = Business.objects.create(
+            owner=self.owner,
+            name="Test Cafe",
+            category=self.category,
+        )
+        self.item_offer = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.ITEM,
+            title="Burger deal",
+            item_name="Classic Burger",
+            original_price=Decimal("10.00"),
+            discounted_price=Decimal("7.00"),
+            discount_percent=Decimal("30.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+        )
+        self.percent_offer = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="10% off bill",
+            discount_percent=Decimal("10.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+        )
+
+    def test_item_offer_payment_is_fixed_discounted_price(self):
+        payment = compute_offer_payment(self.item_offer)
+        self.assertEqual(payment.amount_to_pay, Decimal("7.00"))
+        self.assertEqual(payment.original_amount, Decimal("10.00"))
+        self.assertEqual(payment.discount_amount, Decimal("3.00"))
+        self.assertFalse(payment.requires_bill_amount)
+
+    def test_percentage_offer_requires_bill_amount(self):
+        payment = compute_offer_payment(self.percent_offer)
+        self.assertIsNone(payment.amount_to_pay)
+        self.assertTrue(payment.requires_bill_amount)
+
+    def test_percentage_offer_calculates_payment_from_bill(self):
+        payment = compute_offer_payment(self.percent_offer, bill_amount=Decimal("80.00"))
+        self.assertEqual(payment.original_amount, Decimal("80.00"))
+        self.assertEqual(payment.discount_amount, Decimal("8.00"))
+        self.assertEqual(payment.amount_to_pay, Decimal("72.00"))
+
+    def test_item_payment_summary(self):
+        payment = compute_offer_payment(self.item_offer)
+        self.assertIn("€7.00", payment.summary)
+        self.assertIn("Classic Burger", payment.summary)
+
+
+class OfferPaymentAPITests(APITestCase):
+    def setUp(self):
+        self.consumer = User.objects.create_user(
+            email="consumer@example.com",
+            password="testpass123",
+            account_type=User.AccountType.CONSUMER,
+        )
+        self.owner = User.objects.create_user(
+            email="owner@example.com",
+            password="testpass123",
+            account_type=User.AccountType.BUSINESS,
+        )
+        self.category = Category.objects.create(name="Food")
+        self.business = Business.objects.create(
+            owner=self.owner,
+            name="Test Cafe",
+            category=self.category,
+        )
+        self.branch = Branch.objects.create(
+            business=self.business,
+            name="Main Branch",
+            street="Main",
+            house_number="1",
+            postal_code="10001",
+            city="Berlin",
+            latitude=Decimal("52.520008"),
+            longitude=Decimal("13.404954"),
+        )
+        self.item_offer = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.ITEM,
+            title="Burger deal",
+            item_name="Classic Burger",
+            original_price=Decimal("10.00"),
+            discounted_price=Decimal("7.00"),
+            discount_percent=Decimal("30.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+        )
+        self.item_offer.branches.add(self.branch)
+        self.percent_offer = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="10% off bill",
+            discount_percent=Decimal("10.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+        )
+        self.percent_offer.branches.add(self.branch)
+        self.client.force_authenticate(user=self.consumer)
+
+    def test_item_scan_returns_amount_to_pay(self):
+        response = self.client.post(
+            f"/api/offers/{self.item_offer.id}/scan",
+            {
+                "branch_id": self.branch.id,
+                "qr_code": str(self.item_offer.qr_code),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["payment"]["amount_to_pay"], "7.00")
+        self.assertEqual(response.data["payment"]["original_amount"], "10.00")
+        scan = OfferScan.objects.get()
+        self.assertEqual(scan.amount_to_pay, Decimal("7.00"))
+
+    def test_percentage_scan_requires_bill_amount(self):
+        response = self.client.post(
+            f"/api/offers/{self.percent_offer.id}/scan",
+            {
+                "branch_id": self.branch.id,
+                "qr_code": str(self.percent_offer.qr_code),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("bill_amount", response.data["errors"])
+
+    def test_percentage_scan_calculates_payment(self):
+        response = self.client.post(
+            f"/api/offers/{self.percent_offer.id}/scan",
+            {
+                "branch_id": self.branch.id,
+                "qr_code": str(self.percent_offer.qr_code),
+                "bill_amount": "80.00",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["payment"]["amount_to_pay"], "72.00")
+
+    def test_payment_preview_for_item_offer(self):
+        response = self.client.post(
+            f"/api/offers/{self.item_offer.id}/payment-preview",
+            {},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["payment"]["amount_to_pay"], "7.00")
+
+    def test_payment_preview_for_percentage_offer(self):
+        response = self.client.post(
+            f"/api/offers/{self.percent_offer.id}/payment-preview",
+            {"bill_amount": "50.00"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["payment"]["amount_to_pay"], "45.00")
+
+    def test_by_qr_resolves_poster_offer(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get(
+            f"/api/offers/by-qr/{self.item_offer.qr_code}",
+            {"branch_id": self.branch.id},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["offer"]["id"], self.item_offer.id)
+        self.assertEqual(response.data["payment"]["amount_to_pay"], "7.00")
+        self.assertIn("counter", response.data["payment"]["summary"].lower())
+        self.assertFalse(response.data["can_avail"])
+
+    def test_by_qr_includes_usage_when_authenticated(self):
+        response = self.client.get(
+            f"/api/offers/by-qr/{self.item_offer.qr_code}",
+            {"branch_id": self.branch.id},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["can_avail"])
+
+    def test_by_qr_percentage_without_bill_amount(self):
+        response = self.client.get(
+            f"/api/offers/by-qr/{self.percent_offer.qr_code}",
+            {"branch_id": self.branch.id},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["payment"]["requires_bill_amount"])
+        self.assertIsNone(response.data["payment"]["amount_to_pay"])
+
+    def test_avail_completes_poster_flow_in_one_step(self):
+        self.assertEqual(OfferRedemption.objects.filter(offer=self.item_offer).count(), 0)
+        response = self.client.post(
+            f"/api/offers/{self.item_offer.id}/avail",
+            {
+                "branch_id": self.branch.id,
+                "qr_code": str(self.item_offer.qr_code),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data["payment"]["amount_to_pay"], "7.00")
+        self.assertIn("counter", response.data["message"].lower())
+        self.assertEqual(OfferScan.objects.count(), 1)
+        self.assertEqual(OfferRedemption.objects.count(), 1)
