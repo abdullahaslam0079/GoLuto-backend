@@ -22,6 +22,7 @@ from .offer_pricing import compute_offer_payment
 from .offer_utils import (
     UserOfferUsageStatus,
     build_media_url,
+    build_offer_image_urls,
     branch_highlight_queryset,
     build_user_redemption_map,
     get_highest_discount_active_offer,
@@ -127,6 +128,7 @@ class OfferSerializer(serializers.ModelSerializer):
     )
     is_active = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
+    image_urls = serializers.SerializerMethodField()
     user_redemption_count = serializers.SerializerMethodField()
     user_remaining_uses = serializers.SerializerMethodField()
     is_available_for_user = serializers.SerializerMethodField()
@@ -152,6 +154,7 @@ class OfferSerializer(serializers.ModelSerializer):
             "external_url",
             "external_url_label",
             "image_url",
+            "image_urls",
             "discount_percent",
             "item_name",
             "original_price",
@@ -220,13 +223,12 @@ class OfferSerializer(serializers.ModelSerializer):
     def get_is_active(self, obj: Offer) -> bool:
         return obj.is_active
 
+    def get_image_urls(self, obj: Offer) -> list[str]:
+        return build_offer_image_urls(obj, self.context.get("request"))
+
     def get_image_url(self, obj: Offer) -> str | None:
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        if request:
-            return request.build_absolute_uri(obj.image.url)
-        return obj.image.url
+        urls = self.get_image_urls(obj)
+        return urls[0] if urls else None
 
 
 class DiscountFeaturedBranchSerializer(serializers.ModelSerializer):
@@ -238,57 +240,14 @@ class DiscountFeaturedBranchSerializer(serializers.ModelSerializer):
 
 
 class DiscountOfferSerializer(OfferSerializer):
-    view_count = serializers.SerializerMethodField()
-    like_count = serializers.SerializerMethodField()
-    is_liked = serializers.SerializerMethodField()
-    business_view_count = serializers.SerializerMethodField()
-    business_like_count = serializers.SerializerMethodField()
-    is_business_liked = serializers.SerializerMethodField()
     featured_branch = serializers.SerializerMethodField()
     business_logo_url = serializers.SerializerMethodField()
 
     class Meta(OfferSerializer.Meta):
         fields = OfferSerializer.Meta.fields + [
-            "view_count",
-            "like_count",
-            "is_liked",
-            "business_view_count",
-            "business_like_count",
-            "is_business_liked",
             "featured_branch",
             "business_logo_url",
         ]
-
-    def _offer_stats(self, obj: Offer):
-        return getattr(obj, "engagement_stats", None)
-
-    def _business_stats(self, obj: Offer):
-        business = obj.business
-        return getattr(business, "engagement_stats", None)
-
-    def get_view_count(self, obj: Offer) -> int:
-        stats = self._offer_stats(obj)
-        return stats.view_count if stats else 0
-
-    def get_like_count(self, obj: Offer) -> int:
-        stats = self._offer_stats(obj)
-        return stats.like_count if stats else 0
-
-    def get_is_liked(self, obj: Offer) -> bool:
-        liked_ids = self.context.get("liked_offer_ids") or set()
-        return obj.id in liked_ids
-
-    def get_business_view_count(self, obj: Offer) -> int:
-        stats = self._business_stats(obj)
-        return stats.view_count if stats else 0
-
-    def get_business_like_count(self, obj: Offer) -> int:
-        stats = self._business_stats(obj)
-        return stats.like_count if stats else 0
-
-    def get_is_business_liked(self, obj: Offer) -> bool:
-        liked_ids = self.context.get("liked_business_ids") or set()
-        return obj.business_id in liked_ids
 
     def get_featured_branch(self, obj: Offer):
         branches = list(obj.branches.all())

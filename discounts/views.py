@@ -13,8 +13,6 @@ from .engagement_utils import (
     record_offer_view,
     toggle_business_like,
     toggle_offer_like,
-    user_liked_business_ids,
-    user_liked_offer_ids,
 )
 from .models import Address, Branch, Business, Category, Offer, OfferRedemption, UserPreferences
 from .offer_pricing import compute_offer_payment
@@ -154,7 +152,7 @@ class BranchOffersAPIView(UserOfferUsageContextMixin, generics.ListAPIView):
         branch_id = self.kwargs["branch_id"]
         queryset = (
             Offer.objects.select_related("business", "business__category")
-            .prefetch_related("branches")
+            .prefetch_related("branches", "gallery_images")
             .filter(branches__id=branch_id)
         )
         return filter_active_offers(queryset).order_by("-discount_percent", "-id").distinct()
@@ -386,7 +384,7 @@ class DiscountsFeedAPIView(UserLocationContextMixin, UserOfferUsageContextMixin,
                 "engagement_stats",
                 "business__engagement_stats",
             )
-            .prefetch_related("branches")
+            .prefetch_related("branches", "gallery_images")
         )
         queryset = filter_active_offers(queryset)
 
@@ -402,10 +400,6 @@ class DiscountsFeedAPIView(UserLocationContextMixin, UserOfferUsageContextMixin,
         featured = pick_featured_offers_one_per_business(offers)
 
         offer_ids = [offer.id for offer in featured]
-        business_ids = [offer.business_id for offer in featured]
-        liked_offer_ids = user_liked_offer_ids(request.user, offer_ids)
-        liked_business_ids = user_liked_business_ids(request.user, business_ids)
-
         usage_map = {}
         user = request.user
         if user.is_authenticated and user.account_type == User.AccountType.CONSUMER:
@@ -414,8 +408,6 @@ class DiscountsFeedAPIView(UserLocationContextMixin, UserOfferUsageContextMixin,
         context = {
             "request": request,
             "user_location": location,
-            "liked_offer_ids": liked_offer_ids,
-            "liked_business_ids": liked_business_ids,
             "user_offer_usage_by_id": usage_map,
         }
         data = DiscountOfferSerializer(featured, many=True, context=context).data

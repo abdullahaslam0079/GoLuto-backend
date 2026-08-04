@@ -188,7 +188,7 @@ class BusinessOfferListCreateAPIView(generics.ListCreateAPIView):
             self.request.user.business_profile.offers.select_related(
                 "engagement_stats"
             )
-            .prefetch_related("branches", "branch_stats__branch")
+            .prefetch_related("branches", "branch_stats__branch", "gallery_images")
             .order_by("-created_at", "-id")
         )
 
@@ -224,7 +224,7 @@ class BusinessOfferDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         return self.request.user.business_profile.offers.select_related(
             "engagement_stats"
         ).prefetch_related(
-            "branches", "branch_stats__branch"
+            "branches", "branch_stats__branch", "gallery_images"
         )
 
     def get_serializer_context(self):

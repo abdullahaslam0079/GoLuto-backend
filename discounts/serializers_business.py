@@ -9,7 +9,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .fields import OptionalImageField
 from .models import Branch, Business, Category, Offer, OfferBranchStats
 from .offer_pricing import compute_offer_payment
-from .offer_utils import can_user_redeem_offer
+from .offer_utils import can_user_redeem_offer, build_offer_image_urls
 from .serializers import BranchHighlightSerializer, CategorySerializer
 
 User = get_user_model()
@@ -277,6 +277,7 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
     like_count = serializers.SerializerMethodField()
     image = OptionalImageField(required=False, allow_null=True, write_only=True)
     image_url = serializers.SerializerMethodField()
+    image_urls = serializers.SerializerMethodField()
 
     class Meta:
         model = Offer
@@ -291,6 +292,7 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             "external_url_label",
             "image",
             "image_url",
+            "image_urls",
             "discount_percent",
             "item_name",
             "original_price",
@@ -324,13 +326,12 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             return super().run_validation(payload)
         return super().run_validation(data)
 
+    def get_image_urls(self, obj: Offer) -> list[str]:
+        return build_offer_image_urls(obj, self.context.get("request"))
+
     def get_image_url(self, obj: Offer) -> str | None:
-        if not obj.image:
-            return None
-        request = self.context.get("request")
-        if request:
-            return request.build_absolute_uri(obj.image.url)
-        return obj.image.url
+        urls = self.get_image_urls(obj)
+        return urls[0] if urls else None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

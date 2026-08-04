@@ -176,6 +176,20 @@ class Offer(models.Model):
         return f"{self.business.name} - {self.title}"
 
 
+class OfferGalleryImage(models.Model):
+    offer = models.ForeignKey(
+        Offer, on_delete=models.CASCADE, related_name="gallery_images"
+    )
+    image = models.ImageField(upload_to="offer_gallery/")
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def __str__(self) -> str:
+        return f"Gallery<{self.offer_id}:{self.id}>"
+
+
 class OfferBranchStats(models.Model):
     offer = models.ForeignKey(
         Offer, on_delete=models.CASCADE, related_name="branch_stats"

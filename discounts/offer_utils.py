@@ -315,6 +315,19 @@ def build_media_url(request, file_field) -> str | None:
     return file_field.url
 
 
+def build_offer_image_urls(offer: Offer, request) -> list[str]:
+    urls: list[str] = []
+    for gallery_image in offer.gallery_images.all():
+        url = build_media_url(request, gallery_image.image)
+        if url:
+            urls.append(url)
+    if not urls:
+        legacy = build_media_url(request, offer.image)
+        if legacy:
+            urls.append(legacy)
+    return urls
+
+
 def annotate_branch_highlights(queryset, now=None):
     now = now or timezone.now()
     return queryset.annotate(
