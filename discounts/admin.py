@@ -10,8 +10,11 @@ from .models import (
     Category,
     Offer,
     OfferBranchStats,
+    OfferEngagementStats,
+    OfferLike,
     OfferRedemption,
     OfferScan,
+    OfferViewEvent,
     User,
     UserPreferences,
 )

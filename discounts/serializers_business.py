@@ -273,6 +273,8 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
         source="business.category.name", read_only=True
     )
     category = CategorySerializer(source="business.category", read_only=True)
+    view_count = serializers.SerializerMethodField()
+    like_count = serializers.SerializerMethodField()
     image = OptionalImageField(required=False, allow_null=True, write_only=True)
     image_url = serializers.SerializerMethodField()
 
@@ -284,6 +286,9 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             "redemption_mode",
             "title",
             "description",
+            "detailed_description",
+            "external_url",
+            "external_url_label",
             "image",
             "image_url",
             "discount_percent",
@@ -304,6 +309,8 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             "category_name",
             "category",
             "branch_stats",
+            "view_count",
+            "like_count",
             "created_at",
         ]
         read_only_fields = ["id", "qr_code", "created_at", "image_url"]
@@ -336,6 +343,14 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
 
     def get_is_active(self, obj: Offer) -> bool:
         return obj.is_active
+
+    def get_view_count(self, obj: Offer) -> int:
+        stats = getattr(obj, "engagement_stats", None)
+        return stats.view_count if stats else 0
+
+    def get_like_count(self, obj: Offer) -> int:
+        stats = getattr(obj, "engagement_stats", None)
+        return stats.like_count if stats else 0
 
     def _get_business(self):
         return self.context["business"]

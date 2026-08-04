@@ -2,13 +2,18 @@ from django.urls import path
 
 from .views import (
     BranchOffersAPIView,
+    BusinessLikeAPIView,
     BusinessOffersAPIView,
+    BusinessViewAPIView,
     CategoriesListAPIView,
+    DiscountsFeedAPIView,
     MapBranchesAPIView,
     MapBusinessesAPIView,
     OfferByQRAPIView,
+    OfferLikeAPIView,
     OfferPaymentPreviewAPIView,
     OfferUsageAPIView,
+    OfferViewAPIView,
     OffersListAPIView,
     UserAddressDetailAPIView,
     UserAddressesAPIView,
@@ -32,6 +37,7 @@ from .views_business import (
 urlpatterns = [
     path("categories", CategoriesListAPIView.as_view(), name="categories"),
     path("offers", OffersListAPIView.as_view(), name="offers"),
+    path("offers/discounts", DiscountsFeedAPIView.as_view(), name="offers-discounts"),
     path("map/branches", MapBranchesAPIView.as_view(), name="map-branches"),
     path("map/businesses", MapBusinessesAPIView.as_view(), name="map-businesses"),
     path(
@@ -53,6 +59,26 @@ urlpatterns = [
         "offers/<int:offer_id>/payment-preview",
         OfferPaymentPreviewAPIView.as_view(),
         name="offer-payment-preview",
+    ),
+    path(
+        "offers/<int:offer_id>/view",
+        OfferViewAPIView.as_view(),
+        name="offer-view",
+    ),
+    path(
+        "offers/<int:offer_id>/like",
+        OfferLikeAPIView.as_view(),
+        name="offer-like",
+    ),
+    path(
+        "businesses/<int:business_id>/view",
+        BusinessViewAPIView.as_view(),
+        name="business-view",
+    ),
+    path(
+        "businesses/<int:business_id>/like",
+        BusinessLikeAPIView.as_view(),
+        name="business-like",
     ),
     path(
         "offers/<int:offer_id>/scan",

@@ -125,6 +125,9 @@ class Offer(models.Model):
     )
     title = models.CharField(max_length=120)
     description = models.TextField(blank=True)
+    detailed_description = models.TextField(blank=True)
+    external_url = models.URLField(max_length=500, blank=True)
+    external_url_label = models.CharField(max_length=80, blank=True)
     image = models.ImageField(upload_to="offer_images/", null=True, blank=True)
     discount_percent = models.DecimalField(max_digits=5, decimal_places=2)
     item_name = models.CharField(max_length=120, blank=True)
@@ -261,6 +264,92 @@ class OfferRedemption(models.Model):
 
     def __str__(self) -> str:
         return f"Redemption<{self.offer_id}@{self.branch_id}>"
+
+
+class OfferEngagementStats(models.Model):
+    offer = models.OneToOneField(
+        Offer, on_delete=models.CASCADE, related_name="engagement_stats"
+    )
+    view_count = models.PositiveIntegerField(default=0)
+    like_count = models.PositiveIntegerField(default=0)
+
+    def __str__(self) -> str:
+        return f"OfferStats<{self.offer_id}>"
+
+
+class BusinessEngagementStats(models.Model):
+    business = models.OneToOneField(
+        Business, on_delete=models.CASCADE, related_name="engagement_stats"
+    )
+    view_count = models.PositiveIntegerField(default=0)
+    like_count = models.PositiveIntegerField(default=0)
+
+    def __str__(self) -> str:
+        return f"BusinessStats<{self.business_id}>"
+
+
+class OfferLike(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="offer_likes"
+    )
+    offer = models.ForeignKey(Offer, on_delete=models.CASCADE, related_name="likes")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "offer"], name="unique_offer_like_per_user"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"OfferLike<{self.user_id}:{self.offer_id}>"
+
+
+class BusinessLike(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="business_likes"
+    )
+    business = models.ForeignKey(
+        Business, on_delete=models.CASCADE, related_name="likes"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "business"], name="unique_business_like_per_user"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"BusinessLike<{self.user_id}:{self.business_id}>"
+
+
+class OfferViewEvent(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="offer_view_events",
+        null=True,
+        blank=True,
+    )
+    offer = models.ForeignKey(
+        Offer, on_delete=models.CASCADE, related_name="view_events"
+    )
+    viewed_on = models.DateField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "offer", "viewed_on"],
+                condition=models.Q(user__isnull=False),
+                name="unique_offer_view_per_user_day",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"OfferView<{self.offer_id}@{self.viewed_on}>"
 
 
 class UserPreferences(models.Model):

@@ -148,6 +148,9 @@ class OfferSerializer(serializers.ModelSerializer):
             "redemption_mode",
             "title",
             "description",
+            "detailed_description",
+            "external_url",
+            "external_url_label",
             "image_url",
             "discount_percent",
             "item_name",
@@ -226,6 +229,78 @@ class OfferSerializer(serializers.ModelSerializer):
         return obj.image.url
 
 
+class DiscountFeaturedBranchSerializer(serializers.ModelSerializer):
+    formattedAddress = serializers.CharField(source="formatted_address", read_only=True)
+
+    class Meta:
+        model = Branch
+        fields = ["id", "name", "formattedAddress", "latitude", "longitude"]
+
+
+class DiscountOfferSerializer(OfferSerializer):
+    view_count = serializers.SerializerMethodField()
+    like_count = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
+    business_view_count = serializers.SerializerMethodField()
+    business_like_count = serializers.SerializerMethodField()
+    is_business_liked = serializers.SerializerMethodField()
+    featured_branch = serializers.SerializerMethodField()
+    business_logo_url = serializers.SerializerMethodField()
+
+    class Meta(OfferSerializer.Meta):
+        fields = OfferSerializer.Meta.fields + [
+            "view_count",
+            "like_count",
+            "is_liked",
+            "business_view_count",
+            "business_like_count",
+            "is_business_liked",
+            "featured_branch",
+            "business_logo_url",
+        ]
+
+    def _offer_stats(self, obj: Offer):
+        return getattr(obj, "engagement_stats", None)
+
+    def _business_stats(self, obj: Offer):
+        business = obj.business
+        return getattr(business, "engagement_stats", None)
+
+    def get_view_count(self, obj: Offer) -> int:
+        stats = self._offer_stats(obj)
+        return stats.view_count if stats else 0
+
+    def get_like_count(self, obj: Offer) -> int:
+        stats = self._offer_stats(obj)
+        return stats.like_count if stats else 0
+
+    def get_is_liked(self, obj: Offer) -> bool:
+        liked_ids = self.context.get("liked_offer_ids") or set()
+        return obj.id in liked_ids
+
+    def get_business_view_count(self, obj: Offer) -> int:
+        stats = self._business_stats(obj)
+        return stats.view_count if stats else 0
+
+    def get_business_like_count(self, obj: Offer) -> int:
+        stats = self._business_stats(obj)
+        return stats.like_count if stats else 0
+
+    def get_is_business_liked(self, obj: Offer) -> bool:
+        liked_ids = self.context.get("liked_business_ids") or set()
+        return obj.business_id in liked_ids
+
+    def get_featured_branch(self, obj: Offer):
+        branches = list(obj.branches.all())
+        if not branches:
+            return None
+        branch = sorted(branches, key=lambda item: (item.name, item.id))[0]
+        return DiscountFeaturedBranchSerializer(branch).data
+
+    def get_business_logo_url(self, obj: Offer) -> str | None:
+        return build_media_url(self.context.get("request"), obj.business.logo)
+
+
 class AvailedOfferBranchSerializer(serializers.ModelSerializer):
     business_id = serializers.IntegerField(source="business.id", read_only=True)
     business_name = serializers.CharField(source="business.name", read_only=True)
@@ -265,6 +340,9 @@ class AvailedOfferSummarySerializer(serializers.ModelSerializer):
             "redemption_mode",
             "title",
             "description",
+            "detailed_description",
+            "external_url",
+            "external_url_label",
             "image_url",
             "discount_percent",
             "item_name",
@@ -383,6 +461,9 @@ class OfferQRSummarySerializer(serializers.ModelSerializer):
             "business_name",
             "title",
             "description",
+            "detailed_description",
+            "external_url",
+            "external_url_label",
             "offer_type",
             "redemption_mode",
             "discount_percent",
@@ -407,6 +488,9 @@ class BranchTopOfferSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "description",
+            "detailed_description",
+            "external_url",
+            "external_url_label",
             "offer_type",
             "redemption_mode",
             "discount_percent",

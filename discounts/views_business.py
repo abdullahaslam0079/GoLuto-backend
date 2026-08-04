@@ -185,9 +185,10 @@ class BusinessOfferListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         return (
-            self.request.user.business_profile.offers.prefetch_related(
-                "branches", "branch_stats__branch"
+            self.request.user.business_profile.offers.select_related(
+                "engagement_stats"
             )
+            .prefetch_related("branches", "branch_stats__branch")
             .order_by("-created_at", "-id")
         )
 
@@ -220,7 +221,9 @@ class BusinessOfferDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     lookup_url_kwarg = "offer_id"
 
     def get_queryset(self):
-        return self.request.user.business_profile.offers.prefetch_related(
+        return self.request.user.business_profile.offers.select_related(
+            "engagement_stats"
+        ).prefetch_related(
             "branches", "branch_stats__branch"
         )
 

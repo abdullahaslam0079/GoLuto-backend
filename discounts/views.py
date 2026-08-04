@@ -7,7 +7,16 @@ from rest_framework.views import APIView
 
 from .address_utils import get_user_address, promote_next_default_address
 from .location_utils import filter_branches_for_location, filter_offers_for_location, resolve_user_location
-from .models import Address, Branch, Category, Offer, OfferRedemption, UserPreferences
+from .engagement_utils import (
+    pick_featured_offers_one_per_business,
+    record_business_view,
+    record_offer_view,
+    toggle_business_like,
+    toggle_offer_like,
+    user_liked_business_ids,
+    user_liked_offer_ids,
+)
+from .models import Address, Branch, Business, Category, Offer, OfferRedemption, UserPreferences
 from .offer_pricing import compute_offer_payment
 from .offer_utils import (
     active_offer_q,
@@ -20,6 +29,7 @@ from .permissions import IsConsumerAccount
 from .serializers import (
     AddressSerializer,
     CategorySerializer,
+    DiscountOfferSerializer,
     MapBranchSerializer,
     OfferPaymentPreviewRequestSerializer,
     OfferPaymentPreviewSerializer,
@@ -361,6 +371,118 @@ class OfferByQRAPIView(APIView):
             )
 
         return Response(response_payload)
+
+
+class DiscountsFeedAPIView(UserLocationContextMixin, UserOfferUsageContextMixin, APIView):
+    """One spotlight offer per business, ranked by engagement then discount."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        queryset = (
+            Offer.objects.select_related(
+                "business",
+                "business__category",
+                "engagement_stats",
+                "business__engagement_stats",
+            )
+            .prefetch_related("branches")
+        )
+        queryset = filter_active_offers(queryset)
+
+        category_id = request.query_params.get("category_id")
+        if category_id:
+            queryset = queryset.filter(business__category_id=category_id)
+
+        location = resolve_user_location(request)
+        if location is not None:
+            queryset, _ = filter_offers_for_location(queryset, location)
+
+        offers = list(queryset.distinct())
+        featured = pick_featured_offers_one_per_business(offers)
+
+        offer_ids = [offer.id for offer in featured]
+        business_ids = [offer.business_id for offer in featured]
+        liked_offer_ids = user_liked_offer_ids(request.user, offer_ids)
+        liked_business_ids = user_liked_business_ids(request.user, business_ids)
+
+        usage_map = {}
+        user = request.user
+        if user.is_authenticated and user.account_type == User.AccountType.CONSUMER:
+            usage_map = build_user_redemption_map(user, offer_ids)
+
+        context = {
+            "request": request,
+            "user_location": location,
+            "liked_offer_ids": liked_offer_ids,
+            "liked_business_ids": liked_business_ids,
+            "user_offer_usage_by_id": usage_map,
+        }
+        data = DiscountOfferSerializer(featured, many=True, context=context).data
+        return Response(data)
+
+
+class OfferViewAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, offer_id):
+        offer = get_object_or_404(
+            Offer.objects.select_related("business"),
+            pk=offer_id,
+        )
+        user = request.user if request.user.is_authenticated else None
+        stats = record_offer_view(offer, user=user)
+        return Response(
+            {
+                "message": "Offer view recorded.",
+                "view_count": stats.view_count,
+            }
+        )
+
+
+class OfferLikeAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsConsumerAccount]
+
+    def post(self, request, offer_id):
+        offer = get_object_or_404(Offer, pk=offer_id)
+        is_liked, stats = toggle_offer_like(request.user, offer)
+        return Response(
+            {
+                "message": "Offer like updated.",
+                "is_liked": is_liked,
+                "like_count": stats.like_count,
+            }
+        )
+
+
+class BusinessViewAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, business_id):
+        business = get_object_or_404(Business, pk=business_id)
+        user = request.user if request.user.is_authenticated else None
+        stats = record_business_view(business, user=user)
+        return Response(
+            {
+                "message": "Business view recorded.",
+                "view_count": stats.view_count,
+            }
+        )
+
+
+class BusinessLikeAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsConsumerAccount]
+
+    def post(self, request, business_id):
+        business = get_object_or_404(Business, pk=business_id)
+        is_liked, stats = toggle_business_like(request.user, business)
+        return Response(
+            {
+                "message": "Business like updated.",
+                "is_liked": is_liked,
+                "like_count": stats.like_count,
+            }
+        )
 
 
 class UserPreferencesAPIView(APIView):
