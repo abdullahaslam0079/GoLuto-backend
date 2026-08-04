@@ -24,3 +24,11 @@ class IsConsumerAccount(permissions.BasePermission):
             and user.is_authenticated
             and user.account_type == user.AccountType.CONSUMER
         )
+
+
+class IsAdminAccount(permissions.BasePermission):
+    message = "Admin account required."
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(user and user.is_authenticated and user.is_staff)

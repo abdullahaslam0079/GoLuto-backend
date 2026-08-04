@@ -20,6 +20,23 @@ from .views import (
     UserAvailedOffersAPIView,
     UserPreferencesAPIView,
 )
+from .views_admin import (
+    AdminAnalyticsOverviewAPIView,
+    AdminAnalyticsTimeseriesAPIView,
+    AdminBranchDetailAPIView,
+    AdminBusinessBranchListCreateAPIView,
+    AdminBusinessDetailAPIView,
+    AdminBusinessListCreateAPIView,
+    AdminCategoryDetailAPIView,
+    AdminCategoryListCreateAPIView,
+    AdminLoginAPIView,
+    AdminLogoutAPIView,
+    AdminMeAPIView,
+    AdminOfferDetailAPIView,
+    AdminOfferListCreateAPIView,
+    AdminUserDetailAPIView,
+    AdminUserListAPIView,
+)
 from .views_business import (
     BusinessBranchDetailAPIView,
     BusinessBranchListCreateAPIView,
@@ -147,5 +164,61 @@ urlpatterns = [
         "business/offers/<int:offer_id>",
         BusinessOfferDetailAPIView.as_view(),
         name="business-offer-detail",
+    ),
+    # Admin / platform operator APIs
+    path("admin/auth/token", AdminLoginAPIView.as_view(), name="admin-auth-token"),
+    path("admin/auth/logout", AdminLogoutAPIView.as_view(), name="admin-auth-logout"),
+    path("admin/me", AdminMeAPIView.as_view(), name="admin-me"),
+    path(
+        "admin/analytics/overview",
+        AdminAnalyticsOverviewAPIView.as_view(),
+        name="admin-analytics-overview",
+    ),
+    path(
+        "admin/analytics/timeseries",
+        AdminAnalyticsTimeseriesAPIView.as_view(),
+        name="admin-analytics-timeseries",
+    ),
+    path(
+        "admin/businesses",
+        AdminBusinessListCreateAPIView.as_view(),
+        name="admin-businesses",
+    ),
+    path(
+        "admin/businesses/<int:business_id>",
+        AdminBusinessDetailAPIView.as_view(),
+        name="admin-business-detail",
+    ),
+    path(
+        "admin/businesses/<int:business_id>/branches",
+        AdminBusinessBranchListCreateAPIView.as_view(),
+        name="admin-business-branches",
+    ),
+    path(
+        "admin/branches/<int:branch_id>",
+        AdminBranchDetailAPIView.as_view(),
+        name="admin-branch-detail",
+    ),
+    path("admin/offers", AdminOfferListCreateAPIView.as_view(), name="admin-offers"),
+    path(
+        "admin/offers/<int:offer_id>",
+        AdminOfferDetailAPIView.as_view(),
+        name="admin-offer-detail",
+    ),
+    path("admin/users", AdminUserListAPIView.as_view(), name="admin-users"),
+    path(
+        "admin/users/<int:user_id>",
+        AdminUserDetailAPIView.as_view(),
+        name="admin-user-detail",
+    ),
+    path(
+        "admin/categories",
+        AdminCategoryListCreateAPIView.as_view(),
+        name="admin-categories",
+    ),
+    path(
+        "admin/categories/<int:category_id>",
+        AdminCategoryDetailAPIView.as_view(),
+        name="admin-category-detail",
     ),
 ]
