@@ -84,7 +84,7 @@ class OffersListAPIView(
     def get_queryset(self):
         queryset = Offer.objects.select_related(
             "business", "business__category"
-        ).prefetch_related("branches")
+        ).prefetch_related("branches", "gallery_images")
         queryset = filter_active_offers(queryset)
 
         category_id = self.request.query_params.get("category_id")
@@ -138,7 +138,7 @@ class BusinessOffersAPIView(UserOfferUsageContextMixin, generics.ListAPIView):
         business_id = self.kwargs["business_id"]
         queryset = (
             Offer.objects.select_related("business", "business__category")
-            .prefetch_related("branches")
+            .prefetch_related("branches", "gallery_images")
             .filter(business_id=business_id)
         )
         return filter_active_offers(queryset).order_by("-discount_percent", "-id")
@@ -175,6 +175,7 @@ class UserAvailedOffersAPIView(generics.ListAPIView):
                 "branch",
                 "branch__business",
             )
+            .prefetch_related("offer__gallery_images")
             .order_by("-redeemed_at", "-id")
         )
 
@@ -263,6 +264,7 @@ class OfferByQRAPIView(APIView):
     def get(self, request, qr_code):
         offer = (
             Offer.objects.select_related("business", "business__category")
+            .prefetch_related("gallery_images")
             .filter(qr_code=qr_code)
             .first()
         )

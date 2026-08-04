@@ -127,7 +127,6 @@ class OfferSerializer(serializers.ModelSerializer):
         many=True, source="branches", read_only=True
     )
     is_active = serializers.SerializerMethodField()
-    image_url = serializers.SerializerMethodField()
     image_urls = serializers.SerializerMethodField()
     user_redemption_count = serializers.SerializerMethodField()
     user_remaining_uses = serializers.SerializerMethodField()
@@ -153,7 +152,6 @@ class OfferSerializer(serializers.ModelSerializer):
             "detailed_description",
             "external_url",
             "external_url_label",
-            "image_url",
             "image_urls",
             "discount_percent",
             "item_name",
@@ -226,10 +224,6 @@ class OfferSerializer(serializers.ModelSerializer):
     def get_image_urls(self, obj: Offer) -> list[str]:
         return build_offer_image_urls(obj, self.context.get("request"))
 
-    def get_image_url(self, obj: Offer) -> str | None:
-        urls = self.get_image_urls(obj)
-        return urls[0] if urls else None
-
 
 class DiscountFeaturedBranchSerializer(serializers.ModelSerializer):
     formattedAddress = serializers.CharField(source="formatted_address", read_only=True)
@@ -285,7 +279,7 @@ class AvailedOfferSummarySerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(
         source="business.category.name", read_only=True
     )
-    image_url = serializers.SerializerMethodField()
+    image_urls = serializers.SerializerMethodField()
 
     class Meta:
         model = Offer
@@ -302,15 +296,15 @@ class AvailedOfferSummarySerializer(serializers.ModelSerializer):
             "detailed_description",
             "external_url",
             "external_url_label",
-            "image_url",
+            "image_urls",
             "discount_percent",
             "item_name",
             "original_price",
             "discounted_price",
         ]
 
-    def get_image_url(self, obj: Offer) -> str | None:
-        return build_media_url(self.context.get("request"), obj.image)
+    def get_image_urls(self, obj: Offer) -> list[str]:
+        return build_offer_image_urls(obj, self.context.get("request"))
 
 
 class UserAvailedOfferSerializer(serializers.ModelSerializer):
@@ -411,7 +405,7 @@ class OfferQRBranchSerializer(serializers.ModelSerializer):
 
 class OfferQRSummarySerializer(serializers.ModelSerializer):
     business_name = serializers.CharField(source="business.name", read_only=True)
-    image_url = serializers.SerializerMethodField()
+    image_urls = serializers.SerializerMethodField()
 
     class Meta:
         model = Offer
@@ -429,16 +423,16 @@ class OfferQRSummarySerializer(serializers.ModelSerializer):
             "item_name",
             "original_price",
             "discounted_price",
-            "image_url",
+            "image_urls",
             "is_active",
         ]
 
-    def get_image_url(self, obj: Offer) -> str | None:
-        return build_media_url(self.context.get("request"), obj.image)
+    def get_image_urls(self, obj: Offer) -> list[str]:
+        return build_offer_image_urls(obj, self.context.get("request"))
 
 
 class BranchTopOfferSerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField()
+    image_urls = serializers.SerializerMethodField()
     is_active = serializers.SerializerMethodField()
 
     class Meta:
@@ -456,12 +450,12 @@ class BranchTopOfferSerializer(serializers.ModelSerializer):
             "item_name",
             "original_price",
             "discounted_price",
-            "image_url",
+            "image_urls",
             "is_active",
         ]
 
-    def get_image_url(self, obj: Offer) -> str | None:
-        return build_media_url(self.context.get("request"), obj.image)
+    def get_image_urls(self, obj: Offer) -> list[str]:
+        return build_offer_image_urls(obj, self.context.get("request"))
 
     def get_is_active(self, obj: Offer) -> bool:
         return obj.is_active
@@ -471,7 +465,6 @@ class BranchHighlightSerializer(serializers.ModelSerializer):
     business_logo_url = serializers.SerializerMethodField()
     highest_discount_percent = serializers.SerializerMethodField()
     highest_discount_offer = serializers.SerializerMethodField()
-    highest_discount_offer_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Branch
@@ -479,7 +472,6 @@ class BranchHighlightSerializer(serializers.ModelSerializer):
             "business_logo_url",
             "highest_discount_percent",
             "highest_discount_offer",
-            "highest_discount_offer_image_url",
         ]
 
     def get_business_logo_url(self, obj: Branch) -> str | None:
@@ -500,12 +492,6 @@ class BranchHighlightSerializer(serializers.ModelSerializer):
         if top_offer is None:
             return None
         return BranchTopOfferSerializer(top_offer, context=self.context).data
-
-    def get_highest_discount_offer_image_url(self, obj: Branch) -> str | None:
-        top_offer = get_highest_discount_active_offer(obj)
-        if top_offer is None:
-            return None
-        return build_media_url(self.context.get("request"), top_offer.image)
 
 
 class MapBranchSerializer(BranchHighlightSerializer):

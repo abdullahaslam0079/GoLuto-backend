@@ -124,7 +124,7 @@ class OfferAdmin(admin.ModelAdmin):
 
     @admin.display(boolean=True, description="Image")
     def has_image(self, obj):
-        return bool(obj.image)
+        return obj.gallery_images.exists() or bool(obj.image)
 
 
 @admin.register(OfferBranchStats)

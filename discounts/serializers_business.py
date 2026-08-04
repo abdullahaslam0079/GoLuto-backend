@@ -7,7 +7,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .fields import OptionalImageField
-from .models import Branch, Business, Category, Offer, OfferBranchStats
+from .models import Branch, Business, Category, Offer, OfferBranchStats, OfferGalleryImage
 from .offer_pricing import compute_offer_payment
 from .offer_utils import can_user_redeem_offer, build_offer_image_urls
 from .serializers import BranchHighlightSerializer, CategorySerializer
@@ -216,13 +216,11 @@ class BranchSerializer(BranchHighlightSerializer):
             "business_logo_url",
             "highest_discount_percent",
             "highest_discount_offer",
-            "highest_discount_offer_image_url",
         ]
         read_only_fields = [
             "business_logo_url",
             "highest_discount_percent",
             "highest_discount_offer",
-            "highest_discount_offer_image_url",
         ]
 
     def validate_latitude(self, value):
@@ -275,8 +273,16 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
     category = CategorySerializer(source="business.category", read_only=True)
     view_count = serializers.SerializerMethodField()
     like_count = serializers.SerializerMethodField()
-    image = OptionalImageField(required=False, allow_null=True, write_only=True)
-    image_url = serializers.SerializerMethodField()
+    images = serializers.ListField(
+        child=OptionalImageField(allow_null=False),
+        required=False,
+        allow_empty=True,
+        write_only=True,
+        help_text=(
+            "One or more offer images. In multipart form-data, send multiple "
+            "files using the same field name: images."
+        ),
+    )
     image_urls = serializers.SerializerMethodField()
 
     class Meta:
@@ -290,8 +296,7 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             "detailed_description",
             "external_url",
             "external_url_label",
-            "image",
-            "image_url",
+            "images",
             "image_urls",
             "discount_percent",
             "item_name",
@@ -315,23 +320,37 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             "like_count",
             "created_at",
         ]
-        read_only_fields = ["id", "qr_code", "created_at", "image_url"]
+        read_only_fields = ["id", "qr_code", "created_at", "image_urls"]
 
     def run_validation(self, data=serializers.empty):
         if data is not serializers.empty and hasattr(data, "get"):
             payload = data.copy() if hasattr(data, "copy") else dict(data)
-            image = payload.get("image")
-            if image in (None, "", b"", [], "null", "none", "undefined"):
-                payload.pop("image", None)
+            empty_values = (None, "", b"", "null", "none", "undefined")
+            if hasattr(data, "getlist"):
+                images = [
+                    item for item in data.getlist("images") if item not in empty_values
+                ]
+                if "images" in data:
+                    if hasattr(payload, "setlist"):
+                        payload.setlist("images", images)
+                    else:
+                        payload["images"] = images
+            elif "images" in payload:
+                raw_images = payload.get("images")
+                if raw_images in empty_values:
+                    payload["images"] = []
+                elif not isinstance(raw_images, list):
+                    payload["images"] = [raw_images]
+                else:
+                    payload["images"] = [
+                        item for item in raw_images if item not in empty_values
+                    ]
+
             return super().run_validation(payload)
         return super().run_validation(data)
 
     def get_image_urls(self, obj: Offer) -> list[str]:
         return build_offer_image_urls(obj, self.context.get("request"))
-
-    def get_image_url(self, obj: Offer) -> str | None:
-        urls = self.get_image_urls(obj)
-        return urls[0] if urls else None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -489,21 +508,37 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
         self._validate_time_limits(attrs)
         return attrs
 
+    def _set_gallery_images(self, offer: Offer, images: list) -> None:
+        offer.gallery_images.all().delete()
+        for index, image in enumerate(images):
+            OfferGalleryImage.objects.create(
+                offer=offer, image=image, sort_order=index
+            )
+        first = offer.gallery_images.order_by("sort_order", "id").first()
+        offer.image = first.image.name if first else None
+        offer.save(update_fields=["image"])
+
     def create(self, validated_data):
         validated_data.setdefault(
             "redemption_mode", Offer.RedemptionMode.VIEW_ONLY
         )
+        images = validated_data.pop("images", None)
         branches = validated_data.pop("_branches")
         business = self._get_business()
         offer = Offer.objects.create(business=business, **validated_data)
         offer.branches.set(branches)
+        if images is not None:
+            self._set_gallery_images(offer, images)
         return offer
 
     def update(self, instance, validated_data):
+        images = validated_data.pop("images", None)
         branches = validated_data.pop("_branches", None)
         offer = super().update(instance, validated_data)
         if branches is not None:
             offer.branches.set(branches)
+        if images is not None:
+            self._set_gallery_images(offer, images)
         return offer
 
 

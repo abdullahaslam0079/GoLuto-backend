@@ -341,7 +341,12 @@ def annotate_branch_highlights(queryset, now=None):
 def prefetch_branch_offers(queryset, now=None):
     now = now or timezone.now()
     return queryset.prefetch_related(
-        Prefetch("offers", queryset=Offer.objects.filter(active_offer_q(now)))
+        Prefetch(
+            "offers",
+            queryset=Offer.objects.filter(active_offer_q(now)).prefetch_related(
+                "gallery_images"
+            ),
+        )
     )
 
 
