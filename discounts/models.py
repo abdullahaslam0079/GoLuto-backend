@@ -101,6 +101,10 @@ class Offer(models.Model):
         PERCENTAGE_BILL = "percentage_bill", "Percentage off entire bill"
         ITEM = "item", "Item or service discount"
 
+    class RedemptionMode(models.TextChoices):
+        SCANNABLE = "scannable", "Scannable"
+        VIEW_ONLY = "view_only", "View only"
+
     class UsageLimitType(models.TextChoices):
         ONE_TIME = "one_time", "One time only"
         ONCE_PER_WEEK = "once_per_week", "Once per week"
@@ -114,6 +118,11 @@ class Offer(models.Model):
     )
     branches = models.ManyToManyField(Branch, related_name="offers")
     offer_type = models.CharField(max_length=20, choices=OfferType.choices)
+    redemption_mode = models.CharField(
+        max_length=20,
+        choices=RedemptionMode.choices,
+        default=RedemptionMode.SCANNABLE,
+    )
     title = models.CharField(max_length=120)
     description = models.TextField(blank=True)
     image = models.ImageField(upload_to="offer_images/", null=True, blank=True)

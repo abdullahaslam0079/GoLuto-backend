@@ -267,6 +267,15 @@ class OfferByQRAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        if offer.redemption_mode == Offer.RedemptionMode.VIEW_ONLY:
+            return Response(
+                {
+                    "message": "This offer is view-only and cannot be redeemed.",
+                    "errors": {"qr_code": ["This offer is view-only."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         branch_id = request.query_params.get("branch_id")
         if not branch_id:
             return Response(

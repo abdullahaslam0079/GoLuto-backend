@@ -281,6 +281,7 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "offer_type",
+            "redemption_mode",
             "title",
             "description",
             "image",
@@ -473,6 +474,9 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        validated_data.setdefault(
+            "redemption_mode", Offer.RedemptionMode.VIEW_ONLY
+        )
         branches = validated_data.pop("_branches")
         business = self._get_business()
         offer = Offer.objects.create(business=business, **validated_data)
@@ -514,6 +518,15 @@ class OfferScanSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         offer = self.context["offer"]
+        if offer.redemption_mode != Offer.RedemptionMode.SCANNABLE:
+            raise serializers.ValidationError(
+                {
+                    "non_field_errors": [
+                        "This offer is view-only and cannot be scanned or redeemed."
+                    ]
+                }
+            )
+
         branch = attrs["branch"]
         qr_code = attrs["qr_code"]
         bill_amount = attrs.get("bill_amount")

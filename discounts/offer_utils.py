@@ -229,6 +229,9 @@ def _limit_reached_message(offer: Offer, limit_type: str, max_uses: int) -> str:
 
 
 def can_user_redeem_offer(user, offer, branch):
+    if offer.redemption_mode != Offer.RedemptionMode.SCANNABLE:
+        return False, "This offer is view-only and cannot be redeemed in the app."
+
     if not offer.is_active:
         return False, "This offer is not currently active."
 

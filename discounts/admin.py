@@ -102,13 +102,20 @@ class OfferAdmin(admin.ModelAdmin):
         "business",
         "title",
         "offer_type",
+        "redemption_mode",
         "discount_percent",
         "usage_limit_type",
         "is_enabled",
         "is_time_limited",
         "has_image",
     )
-    list_filter = ("offer_type", "is_enabled", "is_time_limited", "business__category")
+    list_filter = (
+        "offer_type",
+        "redemption_mode",
+        "is_enabled",
+        "is_time_limited",
+        "business__category",
+    )
     search_fields = ("title", "business__name", "item_name")
     filter_horizontal = ("branches",)
 
