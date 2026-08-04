@@ -11,6 +11,7 @@ from .models import (
     Offer,
     OfferBranchStats,
     OfferEngagementStats,
+    OfferGalleryImage,
     OfferLike,
     OfferRedemption,
     OfferScan,
@@ -98,6 +99,13 @@ class BranchAdmin(admin.ModelAdmin):
     search_fields = ("name", "business__name", "city")
 
 
+class OfferGalleryImageInline(admin.TabularInline):
+    model = OfferGalleryImage
+    extra = 1
+    fields = ("image", "sort_order")
+    ordering = ("sort_order", "id")
+
+
 @admin.register(Offer)
 class OfferAdmin(admin.ModelAdmin):
     list_display = (
@@ -121,10 +129,19 @@ class OfferAdmin(admin.ModelAdmin):
     )
     search_fields = ("title", "business__name", "item_name")
     filter_horizontal = ("branches",)
+    exclude = ("image",)
+    inlines = [OfferGalleryImageInline]
 
-    @admin.display(boolean=True, description="Image")
+    @admin.display(boolean=True, description="Images")
     def has_image(self, obj):
         return obj.gallery_images.exists() or bool(obj.image)
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        offer = form.instance
+        first = offer.gallery_images.order_by("sort_order", "id").first()
+        offer.image = first.image.name if first else None
+        offer.save(update_fields=["image"])
 
 
 @admin.register(OfferBranchStats)
