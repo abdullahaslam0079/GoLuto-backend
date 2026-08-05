@@ -1,6 +1,6 @@
-django>=5.0,<7
+django>=5.0,<6.1
 django-cors-headers>=4.6.0
-djangorestframework
+djangorestframework>=3.15,<3.18
 drf-spectacular
 djangorestframework-simplejwt
 gunicorn>=22.0
