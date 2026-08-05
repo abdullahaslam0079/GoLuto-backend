@@ -33,6 +33,7 @@ from .views_admin import (
     AdminLogoutAPIView,
     AdminMeAPIView,
     AdminOfferDetailAPIView,
+    AdminOfferImportFromUrlAPIView,
     AdminOfferListCreateAPIView,
     AdminUserDetailAPIView,
     AdminUserListAPIView,
@@ -200,6 +201,11 @@ urlpatterns = [
         name="admin-branch-detail",
     ),
     path("admin/offers", AdminOfferListCreateAPIView.as_view(), name="admin-offers"),
+    path(
+        "admin/offers/import-from-url",
+        AdminOfferImportFromUrlAPIView.as_view(),
+        name="admin-offer-import-from-url",
+    ),
     path(
         "admin/offers/<int:offer_id>",
         AdminOfferDetailAPIView.as_view(),

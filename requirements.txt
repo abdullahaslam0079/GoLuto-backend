@@ -8,3 +8,5 @@ whitenoise>=6.0
 dj-database-url>=2.0
 psycopg[binary]>=3.0
 Pillow>=10.0
+beautifulsoup4>=4.12
+lxml>=5.0

@@ -27,6 +27,7 @@ from .models import (
 )
 from .offer_utils import branch_highlight_queryset
 from .permissions import IsAdminAccount
+from .product_import import ProductImportError, import_product_from_url
 from .serializers_admin import (
     AdminBranchSerializer,
     AdminBusinessCreateSerializer,
@@ -503,6 +504,41 @@ class AdminOfferListCreateAPIView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class AdminOfferImportFromUrlAPIView(APIView):
+    """Prefill offer fields from a public product page URL (does not create an offer)."""
+
+    permission_classes = [IsAdminAccount]
+
+    def post(self, request):
+        url = (request.data.get("url") or "").strip()
+        if not url:
+            return Response(
+                {
+                    "message": "URL is required.",
+                    "errors": {"url": ["This field is required."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            draft = import_product_from_url(url)
+        except ProductImportError as exc:
+            status_code = (
+                status.HTTP_400_BAD_REQUEST
+                if exc.code in {"invalid_url", "unsupported_page"}
+                else status.HTTP_502_BAD_GATEWAY
+            )
+            return Response(
+                {
+                    "message": exc.message,
+                    "errors": {"url": [exc.message], "code": [exc.code]},
+                },
+                status=status_code,
+            )
+
+        return Response(draft, status=status.HTTP_200_OK)
 
 
 class AdminOfferDetailAPIView(APIView):
