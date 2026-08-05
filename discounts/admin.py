@@ -102,7 +102,7 @@ class BranchAdmin(admin.ModelAdmin):
 class OfferGalleryImageInline(admin.TabularInline):
     model = OfferGalleryImage
     extra = 1
-    fields = ("image", "sort_order")
+    fields = ("image", "source_url", "sort_order")
     ordering = ("sort_order", "id")
 
 

@@ -283,6 +283,17 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             "files using the same field name: images."
         ),
     )
+    gallery_image_urls = serializers.ListField(
+        child=serializers.URLField(max_length=1000),
+        required=False,
+        allow_empty=True,
+        write_only=True,
+        help_text=(
+            "Remote image URLs for the offer gallery. Prefer this when images "
+            "already live on a brand/CDN site. Combined with uploaded images "
+            "when both are provided."
+        ),
+    )
     image_urls = serializers.SerializerMethodField()
 
     class Meta:
@@ -297,6 +308,7 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             "external_url",
             "external_url_label",
             "images",
+            "gallery_image_urls",
             "image_urls",
             "discount_percent",
             "item_name",
@@ -335,16 +347,47 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
                         payload.setlist("images", images)
                     else:
                         payload["images"] = images
-            elif "images" in payload:
-                raw_images = payload.get("images")
-                if raw_images in empty_values:
-                    payload["images"] = []
-                elif not isinstance(raw_images, list):
-                    payload["images"] = [raw_images]
-                else:
-                    payload["images"] = [
-                        item for item in raw_images if item not in empty_values
+
+                if "gallery_image_urls" in data:
+                    urls = [
+                        item
+                        for item in data.getlist("gallery_image_urls")
+                        if item not in empty_values
                     ]
+                    if hasattr(payload, "setlist"):
+                        payload.setlist("gallery_image_urls", urls)
+                    else:
+                        payload["gallery_image_urls"] = urls
+            else:
+                if "images" in payload:
+                    raw_images = payload.get("images")
+                    if raw_images in empty_values:
+                        payload["images"] = []
+                    elif not isinstance(raw_images, list):
+                        payload["images"] = [raw_images]
+                    else:
+                        payload["images"] = [
+                            item for item in raw_images if item not in empty_values
+                        ]
+
+                if "gallery_image_urls" in payload:
+                    raw_urls = payload.get("gallery_image_urls")
+                    if raw_urls in empty_values:
+                        payload["gallery_image_urls"] = []
+                    elif isinstance(raw_urls, str):
+                        # Allow newline/comma-separated string from simple clients.
+                        parts = [
+                            part.strip()
+                            for part in raw_urls.replace(",", "\n").splitlines()
+                            if part.strip()
+                        ]
+                        payload["gallery_image_urls"] = parts
+                    elif not isinstance(raw_urls, list):
+                        payload["gallery_image_urls"] = [raw_urls]
+                    else:
+                        payload["gallery_image_urls"] = [
+                            item for item in raw_urls if item not in empty_values
+                        ]
 
             return super().run_validation(payload)
         return super().run_validation(data)
@@ -508,14 +551,38 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
         self._validate_time_limits(attrs)
         return attrs
 
-    def _set_gallery_images(self, offer: Offer, images: list) -> None:
+    def _set_gallery_images(
+        self,
+        offer: Offer,
+        images: list | None = None,
+        gallery_urls: list | None = None,
+    ) -> None:
         offer.gallery_images.all().delete()
-        for index, image in enumerate(images):
+        sort_order = 0
+        for url in gallery_urls or []:
+            cleaned = (url or "").strip()
+            if not cleaned:
+                continue
             OfferGalleryImage.objects.create(
-                offer=offer, image=image, sort_order=index
+                offer=offer,
+                source_url=cleaned,
+                sort_order=sort_order,
             )
-        first = offer.gallery_images.order_by("sort_order", "id").first()
-        offer.image = first.image.name if first else None
+            sort_order += 1
+        for image in images or []:
+            OfferGalleryImage.objects.create(
+                offer=offer,
+                image=image,
+                sort_order=sort_order,
+            )
+            sort_order += 1
+        first_local = (
+            offer.gallery_images.exclude(image="")
+            .exclude(image=None)
+            .order_by("sort_order", "id")
+            .first()
+        )
+        offer.image = first_local.image.name if first_local else None
         offer.save(update_fields=["image"])
 
     def create(self, validated_data):
@@ -523,22 +590,32 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             "redemption_mode", Offer.RedemptionMode.VIEW_ONLY
         )
         images = validated_data.pop("images", None)
+        gallery_urls = validated_data.pop("gallery_image_urls", None)
         branches = validated_data.pop("_branches")
         business = self._get_business()
         offer = Offer.objects.create(business=business, **validated_data)
         offer.branches.set(branches)
-        if images is not None:
-            self._set_gallery_images(offer, images)
+        if images is not None or gallery_urls is not None:
+            self._set_gallery_images(
+                offer,
+                images=images,
+                gallery_urls=gallery_urls,
+            )
         return offer
 
     def update(self, instance, validated_data):
         images = validated_data.pop("images", None)
+        gallery_urls = validated_data.pop("gallery_image_urls", None)
         branches = validated_data.pop("_branches", None)
         offer = super().update(instance, validated_data)
         if branches is not None:
             offer.branches.set(branches)
-        if images is not None:
-            self._set_gallery_images(offer, images)
+        if images is not None or gallery_urls is not None:
+            self._set_gallery_images(
+                offer,
+                images=images,
+                gallery_urls=gallery_urls,
+            )
         return offer
 
 

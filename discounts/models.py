@@ -180,7 +180,8 @@ class OfferGalleryImage(models.Model):
     offer = models.ForeignKey(
         Offer, on_delete=models.CASCADE, related_name="gallery_images"
     )
-    image = models.ImageField(upload_to="offer_gallery/")
+    image = models.ImageField(upload_to="offer_gallery/", null=True, blank=True)
+    source_url = models.URLField(max_length=1000, blank=True)
     sort_order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:

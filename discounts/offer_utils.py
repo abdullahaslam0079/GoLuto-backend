@@ -318,9 +318,14 @@ def build_media_url(request, file_field) -> str | None:
 def build_offer_image_urls(offer: Offer, request) -> list[str]:
     urls: list[str] = []
     for gallery_image in offer.gallery_images.all():
-        url = build_media_url(request, gallery_image.image)
-        if url:
-            urls.append(url)
+        if gallery_image.image:
+            url = build_media_url(request, gallery_image.image)
+            if url:
+                urls.append(url)
+                continue
+        source = (gallery_image.source_url or "").strip()
+        if source:
+            urls.append(source)
     if not urls:
         legacy = build_media_url(request, offer.image)
         if legacy:
