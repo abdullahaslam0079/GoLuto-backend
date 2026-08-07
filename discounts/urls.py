@@ -14,6 +14,7 @@ from .views import (
     OfferPaymentPreviewAPIView,
     OfferUsageAPIView,
     OfferViewAPIView,
+    OfferSearchAPIView,
     OffersListAPIView,
     UserAddressDetailAPIView,
     UserAddressesAPIView,
@@ -55,6 +56,7 @@ from .views_business import (
 urlpatterns = [
     path("categories", CategoriesListAPIView.as_view(), name="categories"),
     path("offers", OffersListAPIView.as_view(), name="offers"),
+    path("offers/search", OfferSearchAPIView.as_view(), name="offers-search"),
     path("offers/discounts", DiscountsFeedAPIView.as_view(), name="offers-discounts"),
     path("map/branches", MapBranchesAPIView.as_view(), name="map-branches"),
     path("map/businesses", MapBusinessesAPIView.as_view(), name="map-businesses"),

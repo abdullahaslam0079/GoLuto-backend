@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -6,7 +7,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .address_utils import get_user_address, promote_next_default_address
-from .location_utils import filter_branches_for_location, filter_offers_for_location, resolve_user_location
+from .location_utils import (
+    filter_branches_for_location,
+    filter_offers_for_location,
+    resolve_user_location,
+    sort_offers_by_nearest_distance,
+)
 from .engagement_utils import (
     pick_featured_offers_one_per_business,
     record_business_view,
@@ -101,6 +107,78 @@ class OffersListAPIView(
             return queryset
 
         return queryset.order_by("-discount_percent", "-id").distinct()
+
+
+class OfferSearchAPIView(UserLocationContextMixin, APIView):
+    """
+    Full-text-ish offer search (icontains) across product fields and brand name.
+    Results are paginated and ranked nearest-first when a user location is present.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        q = (request.query_params.get("q") or "").strip()
+
+        try:
+            page = max(int(request.query_params.get("page", 1)), 1)
+        except (TypeError, ValueError):
+            page = 1
+        try:
+            page_size = min(max(int(request.query_params.get("page_size", 20)), 1), 100)
+        except (TypeError, ValueError):
+            page_size = 20
+
+        empty = {
+            "count": 0,
+            "page": page,
+            "page_size": page_size,
+            "results": [],
+        }
+        if not q:
+            return Response(empty)
+
+        queryset = (
+            Offer.objects.select_related("business", "business__category")
+            .prefetch_related("branches", "gallery_images")
+        )
+        queryset = filter_active_offers(queryset)
+        queryset = queryset.filter(
+            Q(title__icontains=q)
+            | Q(item_name__icontains=q)
+            | Q(description__icontains=q)
+            | Q(detailed_description__icontains=q)
+            | Q(business__name__icontains=q)
+        ).distinct()
+
+        location = self.get_user_location()
+        if location is not None:
+            queryset = sort_offers_by_nearest_distance(queryset, location)
+        else:
+            queryset = queryset.order_by("-discount_percent", "-id")
+
+        total = queryset.count()
+        start = (page - 1) * page_size
+        items = list(queryset[start : start + page_size])
+
+        usage_map = {}
+        user = request.user
+        if user.is_authenticated and user.account_type == User.AccountType.CONSUMER:
+            usage_map = build_user_redemption_map(user, [offer.id for offer in items])
+
+        context = {
+            "request": request,
+            "user_location": location,
+            "user_offer_usage_by_id": usage_map,
+        }
+        return Response(
+            {
+                "count": total,
+                "page": page,
+                "page_size": page_size,
+                "results": OfferSerializer(items, many=True, context=context).data,
+            }
+        )
 
 
 class MapBranchesAPIView(UserLocationContextMixin, generics.ListAPIView):

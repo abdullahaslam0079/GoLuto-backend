@@ -174,3 +174,26 @@ def filter_offers_for_location(
 
     ordered_offer_ids = [offer.id for offer in sorted(offers, key=nearest_distance)]
     return order_queryset_by_id_sequence(queryset, ordered_offer_ids), mode
+
+
+def sort_offers_by_nearest_distance(
+    queryset: QuerySet, location: UserLocation
+) -> QuerySet:
+    """
+    Rank all matching offers by nearest linked branch distance.
+    Unlike filter_offers_for_location, distant offers are kept (not city/radius scoped).
+    """
+    offers = list(queryset.distinct())
+    if not offers:
+        return queryset.none()
+
+    def nearest_distance(offer: Offer) -> float:
+        branches = list(offer.branches.all())
+        if not branches:
+            return float("inf")
+        return min(branch_distance_km(branch, location) for branch in branches)
+
+    ordered_offer_ids = [
+        offer.id for offer in sorted(offers, key=nearest_distance)
+    ]
+    return order_queryset_by_id_sequence(queryset, ordered_offer_ids)
