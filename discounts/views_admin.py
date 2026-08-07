@@ -25,6 +25,7 @@ from .models import (
     OfferScan,
     OfferViewEvent,
 )
+from .notification_utils import notify_favorited_business_new_offer
 from .offer_utils import branch_highlight_queryset
 from .permissions import IsAdminAccount
 from .product_import import ProductImportError, import_product_from_url
@@ -492,6 +493,7 @@ class AdminOfferListCreateAPIView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         offer = serializer.save()
+        notify_favorited_business_new_offer(offer)
         offer = self.get_queryset().get(pk=offer.pk)
         output = AdminOfferSerializer(
             offer, context={"request": request, "business": offer.business}

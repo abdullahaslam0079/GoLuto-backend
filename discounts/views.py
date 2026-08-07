@@ -17,10 +17,21 @@ from .engagement_utils import (
     pick_featured_offers_one_per_business,
     record_business_view,
     record_offer_view,
+    set_business_like,
     toggle_business_like,
     toggle_offer_like,
 )
-from .models import Address, Branch, Business, Category, Offer, OfferRedemption, UserPreferences
+from .models import (
+    Address,
+    Branch,
+    Business,
+    Category,
+    DeviceToken,
+    Notification,
+    Offer,
+    OfferRedemption,
+    UserPreferences,
+)
 from .offer_pricing import compute_offer_payment
 from .offer_utils import (
     active_offer_q,
@@ -33,8 +44,10 @@ from .permissions import IsConsumerAccount
 from .serializers import (
     AddressSerializer,
     CategorySerializer,
+    DeviceTokenSerializer,
     DiscountOfferSerializer,
     MapBranchSerializer,
+    NotificationSerializer,
     OfferPaymentPreviewRequestSerializer,
     OfferPaymentPreviewSerializer,
     OfferQRBranchSerializer,
@@ -547,7 +560,15 @@ class BusinessLikeAPIView(APIView):
 
     def post(self, request, business_id):
         business = get_object_or_404(Business, pk=business_id)
-        is_liked, stats = toggle_business_like(request.user, business)
+        if "liked" in request.data:
+            liked = request.data.get("liked")
+            if isinstance(liked, str):
+                liked = liked.lower() in ("1", "true", "yes")
+            is_liked, stats = set_business_like(
+                request.user, business, liked=bool(liked)
+            )
+        else:
+            is_liked, stats = toggle_business_like(request.user, business)
         return Response(
             {
                 "message": "Business like updated.",
@@ -571,6 +592,118 @@ class UserPreferencesAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+    def patch(self, request):
+        preferences, _ = UserPreferences.objects.get_or_create(user=request.user)
+        serializer = UserPreferencesSerializer(
+            preferences, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+def _paginate_notifications(queryset, request):
+    try:
+        page = max(int(request.query_params.get("page", 1)), 1)
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        page_size = min(max(int(request.query_params.get("page_size", 20)), 1), 100)
+    except (TypeError, ValueError):
+        page_size = 20
+
+    total = queryset.count()
+    start = (page - 1) * page_size
+    end = start + page_size
+    items = queryset[start:end]
+    serializer = NotificationSerializer(items, many=True)
+    return Response(
+        {
+            "count": total,
+            "page": page,
+            "page_size": page_size,
+            "results": serializer.data,
+        }
+    )
+
+
+class DeviceTokenRegisterAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsConsumerAccount]
+
+    def post(self, request):
+        serializer = DeviceTokenSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        device = serializer.save()
+        return Response(
+            {
+                "message": "Device registered.",
+                "token": device.token,
+                "platform": device.platform,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class DeviceTokenUnregisterAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsConsumerAccount]
+
+    def delete(self, request, token):
+        deleted, _ = DeviceToken.objects.filter(
+            user=request.user, token=token
+        ).delete()
+        if not deleted:
+            return Response(
+                {"message": "Device token not found.", "errors": {}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(
+            {"message": "Device unregistered.", "errors": {}},
+            status=status.HTTP_200_OK,
+        )
+
+
+class NotificationListAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsConsumerAccount]
+
+    def get(self, request):
+        qs = Notification.objects.filter(user=request.user)
+        return _paginate_notifications(qs, request)
+
+
+class NotificationUnreadCountAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsConsumerAccount]
+
+    def get(self, request):
+        count = Notification.objects.filter(
+            user=request.user, read_at__isnull=True
+        ).count()
+        return Response({"unread_count": count})
+
+
+class NotificationMarkReadAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsConsumerAccount]
+
+    def post(self, request, notification_id):
+        notification = get_object_or_404(
+            Notification, pk=notification_id, user=request.user
+        )
+        notification.mark_read()
+        return Response(NotificationSerializer(notification).data)
+
+
+class NotificationMarkAllReadAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsConsumerAccount]
+
+    def post(self, request):
+        from django.utils import timezone
+
+        updated = Notification.objects.filter(
+            user=request.user, read_at__isnull=True
+        ).update(read_at=timezone.now())
+        return Response({"message": "All notifications marked as read.", "updated": updated})
 
 
 class UserAddressesAPIView(generics.ListCreateAPIView):

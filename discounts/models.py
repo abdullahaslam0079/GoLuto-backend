@@ -378,6 +378,75 @@ class UserPreferences(models.Model):
         return f"Preferences<{self.user.email}>"
 
 
+class DeviceToken(models.Model):
+    class Platform(models.TextChoices):
+        IOS = "ios", "iOS"
+        ANDROID = "android", "Android"
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="device_tokens"
+    )
+    token = models.CharField(max_length=512, unique=True)
+    platform = models.CharField(max_length=16, choices=Platform.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "platform"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"DeviceToken<{self.user_id}:{self.platform}>"
+
+
+class Notification(models.Model):
+    class NotificationType(models.TextChoices):
+        FAVORITED_BUSINESS_NEW_OFFER = (
+            "favorited_business_new_offer",
+            "Favorited business new offer",
+        )
+        OFFER_EXPIRING_SOON = ("offer_expiring_soon", "Offer expiring soon")
+        REDEMPTION_CONFIRMATION = (
+            "redemption_confirmation",
+            "Redemption confirmation",
+        )
+        GENERIC = ("generic", "Generic")
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="notifications"
+    )
+    type = models.CharField(
+        max_length=64,
+        choices=NotificationType.choices,
+        default=NotificationType.GENERIC,
+    )
+    title = models.CharField(max_length=160)
+    body = models.TextField()
+    data = models.JSONField(default=dict, blank=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["user", "-created_at"]),
+            models.Index(fields=["user", "read_at"]),
+        ]
+
+    @property
+    def is_read(self) -> bool:
+        return self.read_at is not None
+
+    def mark_read(self) -> None:
+        if self.read_at is None:
+            self.read_at = timezone.now()
+            self.save(update_fields=["read_at"])
+
+    def __str__(self) -> str:
+        return f"Notification<{self.user_id}:{self.type}>"
+
+
 class Address(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="addresses")
     street = models.CharField(max_length=120)

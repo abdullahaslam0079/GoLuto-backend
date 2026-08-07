@@ -10,6 +10,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .auth_utils import blacklist_user_tokens, logout_response_message
 from .models import Branch, Offer, OfferRedemption, OfferScan
+from .notification_utils import notify_favorited_business_new_offer
 from .offer_utils import (
     branch_highlight_queryset,
     get_user_offer_usage_status,
@@ -201,6 +202,7 @@ class BusinessOfferListCreateAPIView(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         offer = serializer.save()
+        notify_favorited_business_new_offer(offer)
         output = BusinessOfferSerializer(
             offer, context=self.get_serializer_context()
         ).data

@@ -262,3 +262,9 @@ else:
     )
 
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "GoLuto <noreply@goluto.app>")
+
+# Optional Firebase Admin credentials for FCM push delivery.
+# Prefer FIREBASE_CREDENTIALS_JSON (full service-account JSON string) on Render.
+# Locally you can set FIREBASE_CREDENTIALS_PATH to a JSON file path instead.
+FIREBASE_CREDENTIALS_JSON = os.environ.get("FIREBASE_CREDENTIALS_JSON", "")
+FIREBASE_CREDENTIALS_PATH = os.environ.get("FIREBASE_CREDENTIALS_PATH", "")

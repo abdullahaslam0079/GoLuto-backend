@@ -98,6 +98,33 @@ def toggle_business_like(user, business: Business) -> tuple[bool, BusinessEngage
     return True, stats
 
 
+@transaction.atomic
+def set_business_like(
+    user, business: Business, *, liked: bool
+) -> tuple[bool, BusinessEngagementStats]:
+    stats = ensure_business_engagement_stats(business)
+    like = BusinessLike.objects.filter(user=user, business=business).first()
+
+    if liked and like is None:
+        BusinessLike.objects.create(user=user, business=business)
+        BusinessEngagementStats.objects.filter(pk=stats.pk).update(
+            like_count=F("like_count") + 1
+        )
+        stats.refresh_from_db()
+        return True, stats
+
+    if not liked and like is not None:
+        like.delete()
+        BusinessEngagementStats.objects.filter(pk=stats.pk).update(
+            like_count=F("like_count") - 1
+        )
+        stats.refresh_from_db()
+        return False, stats
+
+    stats.refresh_from_db()
+    return liked, stats
+
+
 def user_liked_offer_ids(user, offer_ids: list[int]) -> set[int]:
     if not user or not user.is_authenticated or not offer_ids:
         return set()

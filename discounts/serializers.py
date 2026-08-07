@@ -13,6 +13,8 @@ from .models import (
     Branch,
     Business,
     Category,
+    DeviceToken,
+    Notification,
     Offer,
     OfferRedemption,
     PasswordResetToken,
@@ -790,7 +792,7 @@ class ResetPasswordSerializer(serializers.Serializer):
 
 class UserPreferencesSerializer(serializers.ModelSerializer):
     preferred_categories = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=Category.objects.all()
+        many=True, queryset=Category.objects.all(), required=False
     )
     preferred_category_details = CategorySerializer(
         source="preferred_categories", many=True, read_only=True
@@ -803,3 +805,36 @@ class UserPreferencesSerializer(serializers.ModelSerializer):
             "preferred_categories",
             "preferred_category_details",
         ]
+
+
+class DeviceTokenSerializer(serializers.Serializer):
+    token = serializers.CharField(max_length=512)
+    platform = serializers.ChoiceField(choices=DeviceToken.Platform.choices)
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+        token = validated_data["token"]
+        platform = validated_data["platform"]
+        device, _ = DeviceToken.objects.update_or_create(
+            token=token,
+            defaults={"user": user, "platform": platform},
+        )
+        return device
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    is_read = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = [
+            "id",
+            "type",
+            "title",
+            "body",
+            "data",
+            "is_read",
+            "read_at",
+            "created_at",
+        ]
+        read_only_fields = fields

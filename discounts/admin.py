@@ -8,6 +8,8 @@ from .models import (
     Branch,
     Business,
     Category,
+    DeviceToken,
+    Notification,
     Offer,
     OfferBranchStats,
     OfferEngagementStats,
@@ -136,12 +138,23 @@ class OfferAdmin(admin.ModelAdmin):
     def has_image(self, obj):
         return obj.gallery_images.exists() or bool(obj.image)
 
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if not change:
+            # M2M branches are not available until save_related; notify there.
+            obj._notify_on_create = True
+
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
         offer = form.instance
         first = offer.gallery_images.order_by("sort_order", "id").first()
         offer.image = first.image.name if first else None
         offer.save(update_fields=["image"])
+        if getattr(offer, "_notify_on_create", False):
+            from .notification_utils import notify_favorited_business_new_offer
+
+            notify_favorited_business_new_offer(offer)
+            offer._notify_on_create = False
 
 
 @admin.register(OfferBranchStats)
@@ -162,6 +175,21 @@ class OfferRedemptionAdmin(admin.ModelAdmin):
 @admin.register(UserPreferences)
 class UserPreferencesAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "notifications_enabled")
+
+
+@admin.register(DeviceToken)
+class DeviceTokenAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "platform", "updated_at")
+    list_filter = ("platform",)
+    search_fields = ("user__email", "token")
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "type", "title", "read_at", "created_at")
+    list_filter = ("type",)
+    search_fields = ("user__email", "title", "body")
+    readonly_fields = ("created_at",)
 
 
 @admin.register(Address)
