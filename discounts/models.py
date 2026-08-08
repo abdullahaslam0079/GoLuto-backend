@@ -368,10 +368,20 @@ class OfferViewEvent(models.Model):
 
 
 class UserPreferences(models.Model):
+    class ThemePreference(models.TextChoices):
+        SYSTEM = "system", "System"
+        LIGHT = "light", "Light"
+        DARK = "dark", "Dark"
+
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="preferences"
     )
     notifications_enabled = models.BooleanField(default=True)
+    theme_preference = models.CharField(
+        max_length=16,
+        choices=ThemePreference.choices,
+        default=ThemePreference.SYSTEM,
+    )
     preferred_categories = models.ManyToManyField(Category, blank=True)
 
     def __str__(self) -> str:
