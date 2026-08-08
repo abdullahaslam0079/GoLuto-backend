@@ -14,6 +14,7 @@ from .location_utils import (
     sort_offers_by_nearest_distance,
 )
 from .engagement_utils import (
+    favorited_branches_for_user,
     pick_featured_offers_one_per_business,
     record_business_view,
     record_offer_view,
@@ -574,6 +575,37 @@ class BusinessLikeAPIView(APIView):
                 "message": "Business like updated.",
                 "is_liked": is_liked,
                 "like_count": stats.like_count,
+            }
+        )
+
+
+class UserFavoritesAPIView(UserLocationContextMixin, APIView):
+    """List branches for businesses the consumer has favorited (liked)."""
+
+    permission_classes = [permissions.IsAuthenticated, IsConsumerAccount]
+
+    def get(self, request):
+        if request.user.account_type != User.AccountType.CONSUMER:
+            return Response(
+                {
+                    "message": "Consumer account required.",
+                    "errors": {"detail": ["Consumer account required."]},
+                    "results": [],
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        location = self.get_user_location()
+        branches = favorited_branches_for_user(request.user, location=location)
+        context = {"request": request}
+        if location is not None:
+            context["user_location"] = location
+        serializer = MapBranchSerializer(branches, many=True, context=context)
+        return Response(
+            {
+                "message": "Favorites retrieved successfully.",
+                "errors": {},
+                "results": serializer.data,
             }
         )
 

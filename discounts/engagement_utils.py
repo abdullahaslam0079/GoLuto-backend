@@ -145,6 +145,59 @@ def user_liked_business_ids(user, business_ids: list[int]) -> set[int]:
     )
 
 
+def favorited_branches_for_user(user, *, location=None):
+    """Return one representative branch per business the user has favorited.
+
+    Prefers the nearest branch when [location] is provided; otherwise the
+    branch with the highest active discount. Order follows most-recent like.
+    """
+    from .location_utils import branch_distance_km
+    from .models import Branch
+    from .offer_utils import branch_highlight_queryset
+
+    liked_business_ids = list(
+        BusinessLike.objects.filter(user=user)
+        .order_by("-created_at")
+        .values_list("business_id", flat=True)
+    )
+    if not liked_business_ids:
+        return []
+
+    branches = list(
+        branch_highlight_queryset(
+            Branch.objects.filter(business_id__in=liked_business_ids)
+        )
+    )
+    if not branches:
+        return []
+
+    best_by_business: dict[int, object] = {}
+    for branch in branches:
+        business_id = branch.business_id
+        current = best_by_business.get(business_id)
+        if current is None:
+            best_by_business[business_id] = branch
+            continue
+
+        if location is not None:
+            if branch_distance_km(branch, location) < branch_distance_km(
+                current, location
+            ):
+                best_by_business[business_id] = branch
+            continue
+
+        current_discount = getattr(current, "highest_discount_percent", None) or 0
+        branch_discount = getattr(branch, "highest_discount_percent", None) or 0
+        if branch_discount > current_discount:
+            best_by_business[business_id] = branch
+
+    return [
+        best_by_business[business_id]
+        for business_id in liked_business_ids
+        if business_id in best_by_business
+    ]
+
+
 def pick_featured_offers_one_per_business(offers: list[Offer]) -> list[Offer]:
     """Pick a single spotlight offer per business (views, likes, then discount)."""
     featured: dict[int, Offer] = {}

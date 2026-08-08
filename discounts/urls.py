@@ -25,6 +25,7 @@ from .views import (
     UserAddressDetailAPIView,
     UserAddressesAPIView,
     UserAvailedOffersAPIView,
+    UserFavoritesAPIView,
     UserPreferencesAPIView,
 )
 from .views_admin import (
@@ -131,6 +132,7 @@ urlpatterns = [
         UserAvailedOffersAPIView.as_view(),
         name="user-availed-offers",
     ),
+    path("user/favorites", UserFavoritesAPIView.as_view(), name="user-favorites"),
     path("user/preferences", UserPreferencesAPIView.as_view(), name="user-preferences"),
     path("devices", DeviceTokenRegisterAPIView.as_view(), name="device-register"),
     path(
