@@ -1,8 +1,11 @@
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Branch, Business, Category, Offer
+from .models import Branch, Business, Category, Offer, OfferViewEvent
 from .serializers_business import (
     BranchSerializer,
     BusinessOfferSerializer,
@@ -177,17 +180,21 @@ class AdminBusinessSerializer(BusinessProfileSerializer):
     def get_redemption_count(self, obj: Business) -> int:
         return int(getattr(obj, "annotated_redemption_count", 0) or 0)
 
-    def get_view_count(self, obj: Business) -> int:
-        stats = getattr(obj, "engagement_stats", None)
-        if stats is not None:
-            return stats.view_count
-        return 0
+    def _engagement_stats(self, obj: Business):
+        try:
+            return obj.engagement_stats
+        except ObjectDoesNotExist:
+            return None
 
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_view_count(self, obj: Business) -> int:
+        stats = self._engagement_stats(obj)
+        return stats.view_count if stats else 0
+
+    @extend_schema_field(OpenApiTypes.INT)
     def get_like_count(self, obj: Business) -> int:
-        stats = getattr(obj, "engagement_stats", None)
-        if stats is not None:
-            return stats.like_count
-        return 0
+        stats = self._engagement_stats(obj)
+        return stats.like_count if stats else 0
 
 
 class AdminBusinessCreateSerializer(BusinessRegisterSerializer):
@@ -213,12 +220,36 @@ class AdminOfferSerializer(BusinessOfferSerializer):
         },
     )
     business_name = serializers.CharField(source="business.name", read_only=True)
+    unique_viewers = serializers.SerializerMethodField(
+        help_text="Distinct authenticated users who opened this offer at least once.",
+    )
 
     class Meta(BusinessOfferSerializer.Meta):
         fields = BusinessOfferSerializer.Meta.fields + [
             "business_id",
             "business_name",
+            "unique_viewers",
         ]
+        read_only_fields = list(
+            getattr(BusinessOfferSerializer.Meta, "read_only_fields", [])
+        ) + [
+            "business_name",
+            "view_count",
+            "like_count",
+            "unique_viewers",
+        ]
+
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_unique_viewers(self, obj: Offer) -> int:
+        annotated = getattr(obj, "annotated_unique_viewers", None)
+        if annotated is not None:
+            return int(annotated)
+        return (
+            OfferViewEvent.objects.filter(offer=obj, user__isnull=False)
+            .values("user_id")
+            .distinct()
+            .count()
+        )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

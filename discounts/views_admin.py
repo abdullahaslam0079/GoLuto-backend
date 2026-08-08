@@ -5,6 +5,7 @@ from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncDate
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -169,8 +170,17 @@ class AdminAnalyticsOverviewAPIView(APIView):
             context={"request": request},
         ).data
         recent_offers = AdminOfferSerializer(
-            Offer.objects.select_related("business", "business__category")
+            Offer.objects.select_related(
+                "business", "business__category", "engagement_stats"
+            )
             .prefetch_related("branches", "branch_stats__branch", "gallery_images")
+            .annotate(
+                annotated_unique_viewers=Count(
+                    "view_events__user",
+                    distinct=True,
+                    filter=Q(view_events__user__isnull=False),
+                )
+            )
             .order_by("-created_at", "-id")[:5],
             many=True,
             context={"request": request},
@@ -449,6 +459,21 @@ class AdminBranchDetailAPIView(APIView):
         )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="List offers (admin)",
+        description=(
+            "Paginated offers. Each item includes `view_count` (total opens) and "
+            "`unique_viewers` (distinct authenticated users who opened the offer)."
+        ),
+        responses={200: AdminOfferSerializer(many=True)},
+    ),
+    post=extend_schema(
+        summary="Create offer (admin)",
+        request=AdminOfferSerializer,
+        responses={201: AdminOfferSerializer},
+    ),
+)
 class AdminOfferListCreateAPIView(APIView):
     permission_classes = [IsAdminAccount]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -459,6 +484,13 @@ class AdminOfferListCreateAPIView(APIView):
                 "business", "business__category", "engagement_stats"
             )
             .prefetch_related("branches", "branch_stats__branch", "gallery_images")
+            .annotate(
+                annotated_unique_viewers=Count(
+                    "view_events__user",
+                    distinct=True,
+                    filter=Q(view_events__user__isnull=False),
+                )
+            )
             .order_by("-created_at", "-id")
         )
 
@@ -543,6 +575,27 @@ class AdminOfferImportFromUrlAPIView(APIView):
         return Response(draft, status=status.HTTP_200_OK)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get offer (admin)",
+        description=(
+            "Offer detail including engagement: `view_count` (total opens) and "
+            "`unique_viewers` (distinct authenticated users)."
+        ),
+        responses={200: AdminOfferSerializer},
+    ),
+    put=extend_schema(
+        summary="Replace offer (admin)",
+        request=AdminOfferSerializer,
+        responses={200: AdminOfferSerializer},
+    ),
+    patch=extend_schema(
+        summary="Update offer (admin)",
+        request=AdminOfferSerializer,
+        responses={200: AdminOfferSerializer},
+    ),
+    delete=extend_schema(summary="Delete offer (admin)"),
+)
 class AdminOfferDetailAPIView(APIView):
     permission_classes = [IsAdminAccount]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -553,6 +606,13 @@ class AdminOfferDetailAPIView(APIView):
                 "business", "business__category", "engagement_stats"
             )
             .prefetch_related("branches", "branch_stats__branch", "gallery_images")
+            .annotate(
+                annotated_unique_viewers=Count(
+                    "view_events__user",
+                    distinct=True,
+                    filter=Q(view_events__user__isnull=False),
+                )
+            )
         )
 
     def get_object(self, offer_id: int) -> Offer:

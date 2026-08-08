@@ -2,7 +2,10 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.exceptions import ValidationError as DjangoValidationError
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -406,12 +409,21 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
     def get_is_active(self, obj: Offer) -> bool:
         return obj.is_active
 
+    def _engagement_stats(self, obj: Offer):
+        try:
+            return obj.engagement_stats
+        except ObjectDoesNotExist:
+            return None
+
+    @extend_schema_field(OpenApiTypes.INT)
     def get_view_count(self, obj: Offer) -> int:
-        stats = getattr(obj, "engagement_stats", None)
+        """Total offer opens. Authenticated users count once per calendar day."""
+        stats = self._engagement_stats(obj)
         return stats.view_count if stats else 0
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_like_count(self, obj: Offer) -> int:
-        stats = getattr(obj, "engagement_stats", None)
+        stats = self._engagement_stats(obj)
         return stats.like_count if stats else 0
 
     def _get_business(self):

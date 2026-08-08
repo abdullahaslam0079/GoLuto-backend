@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm as BaseUserChangeForm
 from django.contrib.auth.forms import UserCreationForm as BaseUserCreationForm
+from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Count, Q
 
 from .models import (
     Address,
@@ -121,6 +123,9 @@ class OfferAdmin(admin.ModelAdmin):
         "is_enabled",
         "is_time_limited",
         "has_image",
+        "view_count",
+        "like_count",
+        "unique_viewers",
     )
     list_filter = (
         "offer_type",
@@ -133,10 +138,39 @@ class OfferAdmin(admin.ModelAdmin):
     filter_horizontal = ("branches",)
     exclude = ("image",)
     inlines = [OfferGalleryImageInline]
+    list_select_related = ("business", "engagement_stats")
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related("engagement_stats").annotate(
+            annotated_unique_viewers=Count(
+                "view_events__user",
+                distinct=True,
+                filter=Q(view_events__user__isnull=False),
+            )
+        )
 
     @admin.display(boolean=True, description="Images")
     def has_image(self, obj):
         return obj.gallery_images.exists() or bool(obj.image)
+
+    @admin.display(description="Views", ordering="engagement_stats__view_count")
+    def view_count(self, obj):
+        try:
+            return obj.engagement_stats.view_count
+        except ObjectDoesNotExist:
+            return 0
+
+    @admin.display(description="Likes", ordering="engagement_stats__like_count")
+    def like_count(self, obj):
+        try:
+            return obj.engagement_stats.like_count
+        except ObjectDoesNotExist:
+            return 0
+
+    @admin.display(description="Unique viewers", ordering="annotated_unique_viewers")
+    def unique_viewers(self, obj):
+        return int(getattr(obj, "annotated_unique_viewers", 0) or 0)
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
@@ -155,6 +189,21 @@ class OfferAdmin(admin.ModelAdmin):
 
             notify_favorited_business_new_offer(offer)
             offer._notify_on_create = False
+
+
+@admin.register(OfferEngagementStats)
+class OfferEngagementStatsAdmin(admin.ModelAdmin):
+    list_display = ("offer", "view_count", "like_count")
+    search_fields = ("offer__title", "offer__business__name")
+    readonly_fields = ("offer", "view_count", "like_count")
+
+
+@admin.register(OfferViewEvent)
+class OfferViewEventAdmin(admin.ModelAdmin):
+    list_display = ("offer", "user", "viewed_on")
+    list_filter = ("viewed_on",)
+    search_fields = ("offer__title", "user__email")
+    readonly_fields = ("offer", "user", "viewed_on")
 
 
 @admin.register(OfferBranchStats)
