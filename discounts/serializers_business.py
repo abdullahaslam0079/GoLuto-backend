@@ -9,7 +9,11 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .fields import OptionalImageField
 from .models import Branch, Business, Category, Offer, OfferBranchStats, OfferGalleryImage
 from .offer_pricing import compute_offer_payment
-from .offer_utils import can_user_redeem_offer, build_offer_image_urls
+from .offer_utils import (
+    build_media_url,
+    build_offer_image_urls,
+    can_user_redeem_offer,
+)
 from .serializers import BranchHighlightSerializer, CategorySerializer
 
 User = get_user_model()
@@ -150,12 +154,7 @@ class BusinessProfileSerializer(serializers.ModelSerializer):
         return super().run_validation(data)
 
     def get_logo_url(self, obj: Business) -> str | None:
-        if not obj.logo:
-            return None
-        request = self.context.get("request")
-        if request:
-            return request.build_absolute_uri(obj.logo.url)
-        return obj.logo.url
+        return build_media_url(self.context.get("request"), obj.logo)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

@@ -310,9 +310,13 @@ def get_highest_discount_active_offer(branch, now=None):
 def build_media_url(request, file_field) -> str | None:
     if not file_field:
         return None
+    url = file_field.url
+    # Absolute URLs (S3/R2/CDN) must not be re-hosted under the API origin.
+    if url.startswith(("http://", "https://")):
+        return url
     if request:
-        return request.build_absolute_uri(file_field.url)
-    return file_field.url
+        return request.build_absolute_uri(url)
+    return url
 
 
 def build_offer_image_urls(offer: Offer, request) -> list[str]:

@@ -56,6 +56,28 @@ Regenerate the collection after endpoint changes: `python3 postman/generate_coll
    - `SECRET_KEY` (long random string)
    - `DATABASE_URL` (from Render Postgres **Internal Database URL**)
    - `ALLOWED_HOSTS` optional — if unset on Render, `RENDER_EXTERNAL_HOSTNAME` is used when `RENDER` is set (see `config/settings.py`).
+   - **Media storage (required):** Render’s disk is wiped on restart/redeploy, so logos and offer images must live in object storage. Set the `AWS_*` vars below (Cloudflare R2 is free-tier friendly).
+
+### Persistent media (Cloudflare R2 / S3)
+
+Without these, uploaded logos work briefly then return **404 Not Found** after the service sleeps or redeploys.
+
+1. Create a [Cloudflare R2](https://dash.cloudflare.com/?to=/:account/r2) bucket (or AWS S3).
+2. Enable **public access** (R2: allow public bucket / R2.dev subdomain, or attach a custom domain).
+3. Create an R2 API token with Object Read & Write.
+4. Set on the Render web service:
+
+| Variable | Example (R2) |
+|----------|----------------|
+| `AWS_ACCESS_KEY_ID` | R2 access key id |
+| `AWS_SECRET_ACCESS_KEY` | R2 secret access key |
+| `AWS_STORAGE_BUCKET_NAME` | your-bucket-name |
+| `AWS_S3_REGION_NAME` | `auto` |
+| `AWS_S3_ENDPOINT_URL` | `https://<accountid>.r2.cloudflarestorage.com` |
+| `AWS_S3_CUSTOM_DOMAIN` | `pub-xxxx.r2.dev` (no `https://`) |
+| `AWS_QUERYSTRING_AUTH` | `False` |
+
+Redeploy after setting them. Re-upload any logos that already 404’d (those files were lost with the old local disk).
 
 **Build command:** `pip install -r requirements.txt && python manage.py collectstatic --noinput`  
 **Start command:** `python manage.py migrate --noinput && python manage.py ensure_superuser && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`

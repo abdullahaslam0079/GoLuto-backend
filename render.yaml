@@ -28,3 +28,19 @@ services:
         fromDatabase:
           name: goluto-db
           property: connectionString
+      # Persistent uploads (logos/images). Local disk on Render is ephemeral.
+      # Create a Cloudflare R2 or AWS S3 bucket, then set these in the dashboard.
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false
+      - key: AWS_S3_REGION_NAME
+        value: auto
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false
+      - key: AWS_S3_CUSTOM_DOMAIN
+        sync: false
+      - key: AWS_QUERYSTRING_AUTH
+        value: "False"
