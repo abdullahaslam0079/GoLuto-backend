@@ -41,6 +41,7 @@ from .offer_utils import (
     filter_active_offers,
     get_user_offer_usage_status,
 )
+from .pagination import page_payload, parse_page_params, slice_page, slice_queryset
 from .permissions import IsConsumerAccount
 from .serializers import (
     AddressSerializer,
@@ -77,16 +78,23 @@ class UserLocationContextMixin:
 
 
 class UserOfferUsageContextMixin:
+    """Attach per-request offer usage maps when list handlers set them."""
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
+        usage_override = getattr(self, "_user_offer_usage_by_id", None)
+        if usage_override is not None:
+            context["user_offer_usage_by_id"] = usage_override
+        return context
+
+    def _set_offer_usage_for_items(self, items):
         user = self.request.user
         if user.is_authenticated and user.account_type == User.AccountType.CONSUMER:
-            queryset = self.filter_queryset(self.get_queryset())
-            offer_ids = list(queryset.values_list("id", flat=True))
-            context["user_offer_usage_by_id"] = build_user_redemption_map(
-                user, offer_ids
+            self._user_offer_usage_by_id = build_user_redemption_map(
+                user, [offer.id for offer in items]
             )
-        return context
+        else:
+            self._user_offer_usage_by_id = {}
 
 
 class CategoriesListAPIView(generics.ListAPIView):
@@ -122,6 +130,21 @@ class OffersListAPIView(
 
         return queryset.order_by("-discount_percent", "-id").distinct()
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page, page_size = parse_page_params(request)
+        total, items = slice_queryset(queryset, page, page_size)
+        self._set_offer_usage_for_items(items)
+        serializer = self.get_serializer(items, many=True)
+        return Response(
+            page_payload(
+                count=total,
+                page=page,
+                page_size=page_size,
+                results=serializer.data,
+            )
+        )
+
 
 class OfferSearchAPIView(UserLocationContextMixin, APIView):
     """
@@ -134,21 +157,8 @@ class OfferSearchAPIView(UserLocationContextMixin, APIView):
     def get(self, request):
         q = (request.query_params.get("q") or "").strip()
 
-        try:
-            page = max(int(request.query_params.get("page", 1)), 1)
-        except (TypeError, ValueError):
-            page = 1
-        try:
-            page_size = min(max(int(request.query_params.get("page_size", 20)), 1), 100)
-        except (TypeError, ValueError):
-            page_size = 20
-
-        empty = {
-            "count": 0,
-            "page": page,
-            "page_size": page_size,
-            "results": [],
-        }
+        page, page_size = parse_page_params(request)
+        empty = page_payload(count=0, page=page, page_size=page_size, results=[])
         if not q:
             return Response(empty)
 
@@ -171,9 +181,7 @@ class OfferSearchAPIView(UserLocationContextMixin, APIView):
         else:
             queryset = queryset.order_by("-discount_percent", "-id")
 
-        total = queryset.count()
-        start = (page - 1) * page_size
-        items = list(queryset[start : start + page_size])
+        total, items = slice_queryset(queryset, page, page_size)
 
         usage_map = {}
         user = request.user
@@ -186,12 +194,12 @@ class OfferSearchAPIView(UserLocationContextMixin, APIView):
             "user_offer_usage_by_id": usage_map,
         }
         return Response(
-            {
-                "count": total,
-                "page": page,
-                "page_size": page_size,
-                "results": OfferSerializer(items, many=True, context=context).data,
-            }
+            page_payload(
+                count=total,
+                page=page,
+                page_size=page_size,
+                results=OfferSerializer(items, many=True, context=context).data,
+            )
         )
 
 
@@ -208,12 +216,34 @@ class MapBranchesAPIView(UserLocationContextMixin, generics.ListAPIView):
         if category_id:
             queryset = queryset.filter(business__category_id=category_id)
 
+        branch_id = self.request.query_params.get("branch_id")
+        if branch_id:
+            queryset = queryset.filter(id=branch_id)
+
+        business_id = self.request.query_params.get("business_id")
+        if business_id:
+            queryset = queryset.filter(business_id=business_id)
+
         location = self.get_user_location()
         if location is not None:
             queryset, _ = filter_branches_for_location(queryset, location)
             return queryset
 
         return queryset.order_by("-highest_discount_percent", "name")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page, page_size = parse_page_params(request)
+        total, items = slice_queryset(queryset, page, page_size)
+        serializer = self.get_serializer(items, many=True)
+        return Response(
+            page_payload(
+                count=total,
+                page=page,
+                page_size=page_size,
+                results=serializer.data,
+            )
+        )
 
 
 class MapBusinessesAPIView(MapBranchesAPIView):
@@ -235,6 +265,21 @@ class BusinessOffersAPIView(UserOfferUsageContextMixin, generics.ListAPIView):
         )
         return filter_active_offers(queryset).order_by("-discount_percent", "-id")
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page, page_size = parse_page_params(request)
+        total, items = slice_queryset(queryset, page, page_size)
+        self._set_offer_usage_for_items(items)
+        serializer = self.get_serializer(items, many=True)
+        return Response(
+            page_payload(
+                count=total,
+                page=page,
+                page_size=page_size,
+                results=serializer.data,
+            )
+        )
+
 
 class BranchOffersAPIView(UserOfferUsageContextMixin, generics.ListAPIView):
     serializer_class = OfferSerializer
@@ -248,6 +293,21 @@ class BranchOffersAPIView(UserOfferUsageContextMixin, generics.ListAPIView):
             .filter(branches__id=branch_id)
         )
         return filter_active_offers(queryset).order_by("-discount_percent", "-id").distinct()
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page, page_size = parse_page_params(request)
+        total, items = slice_queryset(queryset, page, page_size)
+        self._set_offer_usage_for_items(items)
+        serializer = self.get_serializer(items, many=True)
+        return Response(
+            page_payload(
+                count=total,
+                page=page,
+                page_size=page_size,
+                results=serializer.data,
+            )
+        )
 
 
 class UserAvailedOffersAPIView(generics.ListAPIView):
@@ -282,13 +342,18 @@ class UserAvailedOffersAPIView(generics.ListAPIView):
             )
 
         queryset = self.filter_queryset(self.get_queryset())
-        serializer = self.get_serializer(queryset, many=True)
+        page, page_size = parse_page_params(request)
+        total, items = slice_queryset(queryset, page, page_size)
+        serializer = self.get_serializer(items, many=True)
         return Response(
-            {
-                "message": "Availed offers retrieved successfully.",
-                "errors": {},
-                "results": serializer.data,
-            }
+            page_payload(
+                count=total,
+                page=page,
+                page_size=page_size,
+                results=serializer.data,
+                message="Availed offers retrieved successfully.",
+                errors={},
+            )
         )
 
 
@@ -492,8 +557,10 @@ class DiscountsFeedAPIView(UserLocationContextMixin, UserOfferUsageContextMixin,
 
         offers = list(queryset.distinct())
         featured = pick_featured_offers_one_per_business(offers)
+        page, page_size = parse_page_params(request)
+        total, page_items = slice_page(featured, page, page_size)
 
-        offer_ids = [offer.id for offer in featured]
+        offer_ids = [offer.id for offer in page_items]
         usage_map = {}
         user = request.user
         if user.is_authenticated and user.account_type == User.AccountType.CONSUMER:
@@ -504,8 +571,15 @@ class DiscountsFeedAPIView(UserLocationContextMixin, UserOfferUsageContextMixin,
             "user_location": location,
             "user_offer_usage_by_id": usage_map,
         }
-        data = DiscountOfferSerializer(featured, many=True, context=context).data
-        return Response(data)
+        data = DiscountOfferSerializer(page_items, many=True, context=context).data
+        return Response(
+            page_payload(
+                count=total,
+                page=page,
+                page_size=page_size,
+                results=data,
+            )
+        )
 
 
 class OfferViewAPIView(APIView):
@@ -595,18 +669,31 @@ class UserFavoritesAPIView(UserLocationContextMixin, APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        from .models import BusinessLike
+
         location = self.get_user_location()
+        liked_business_ids = list(
+            BusinessLike.objects.filter(user=request.user)
+            .order_by("-created_at")
+            .values_list("business_id", flat=True)
+        )
         branches = favorited_branches_for_user(request.user, location=location)
+        page, page_size = parse_page_params(request)
+        total, page_items = slice_page(branches, page, page_size)
         context = {"request": request}
         if location is not None:
             context["user_location"] = location
-        serializer = MapBranchSerializer(branches, many=True, context=context)
+        serializer = MapBranchSerializer(page_items, many=True, context=context)
         return Response(
-            {
-                "message": "Favorites retrieved successfully.",
-                "errors": {},
-                "results": serializer.data,
-            }
+            page_payload(
+                count=total,
+                page=page,
+                page_size=page_size,
+                results=serializer.data,
+                message="Favorites retrieved successfully.",
+                errors={},
+                liked_business_ids=liked_business_ids,
+            )
         )
 
 
@@ -636,27 +723,16 @@ class UserPreferencesAPIView(APIView):
 
 
 def _paginate_notifications(queryset, request):
-    try:
-        page = max(int(request.query_params.get("page", 1)), 1)
-    except (TypeError, ValueError):
-        page = 1
-    try:
-        page_size = min(max(int(request.query_params.get("page_size", 20)), 1), 100)
-    except (TypeError, ValueError):
-        page_size = 20
-
-    total = queryset.count()
-    start = (page - 1) * page_size
-    end = start + page_size
-    items = queryset[start:end]
+    page, page_size = parse_page_params(request)
+    total, items = slice_queryset(queryset, page, page_size)
     serializer = NotificationSerializer(items, many=True)
     return Response(
-        {
-            "count": total,
-            "page": page,
-            "page_size": page_size,
-            "results": serializer.data,
-        }
+        page_payload(
+            count=total,
+            page=page,
+            page_size=page_size,
+            results=serializer.data,
+        )
     )
 
 

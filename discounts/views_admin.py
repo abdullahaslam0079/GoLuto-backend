@@ -46,27 +46,18 @@ User = get_user_model()
 
 
 def _paginate(queryset, request, serializer_class, context=None):
-    try:
-        page = max(int(request.query_params.get("page", 1)), 1)
-    except (TypeError, ValueError):
-        page = 1
-    try:
-        page_size = min(max(int(request.query_params.get("page_size", 20)), 1), 100)
-    except (TypeError, ValueError):
-        page_size = 20
+    from .pagination import page_payload, parse_page_params, slice_queryset
 
-    total = queryset.count()
-    start = (page - 1) * page_size
-    end = start + page_size
-    items = queryset[start:end]
+    page, page_size = parse_page_params(request)
+    total, items = slice_queryset(queryset, page, page_size)
     serializer = serializer_class(items, many=True, context=context or {"request": request})
     return Response(
-        {
-            "count": total,
-            "page": page,
-            "page_size": page_size,
-            "results": serializer.data,
-        }
+        page_payload(
+            count=total,
+            page=page,
+            page_size=page_size,
+            results=serializer.data,
+        )
     )
 
 
