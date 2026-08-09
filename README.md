@@ -97,6 +97,17 @@ If that email was already used for a normal signup via the API, the command **pr
 
 Locally you can always run: `python manage.py createsuperuser`
 
+### Optional AI enrichment (admin product URL import)
+
+`POST /api/admin/offers/import-from-url` scrapes product pages for free (JSON-LD / Open Graph). To fill missing title/description/price and suggest category + discount copy, set:
+
+| Variable | Example |
+|----------|---------|
+| `GEMINI_API_KEY` | API key from [Google AI Studio](https://aistudio.google.com/apikey) (free tier) |
+| `GEMINI_MODEL` | `gemini-2.0-flash` (optional; this is the default) |
+
+Without `GEMINI_API_KEY`, the endpoint behaves exactly as before (scrape-only draft). AI never overwrites high-confidence scraped fields and never creates an offer.
+
 **Render:** In the web service **Settings**, check **Start Command**. If it was set manually, it overrides `render.yaml` and must be:
 
 `python manage.py migrate --noinput && python manage.py ensure_superuser && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`

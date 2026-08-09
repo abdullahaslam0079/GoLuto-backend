@@ -31,6 +31,16 @@ if (pm.response.code === 200 || pm.response.code === 201) {
 }
 """.strip()
 
+ADMIN_LOGIN_TEST = """
+if (pm.response.code === 200 || pm.response.code === 201) {
+    const json = pm.response.json();
+    if (json.access) {
+        pm.environment.set('admin_token', json.access);
+        pm.collectionVariables.set('admin_token', json.access);
+    }
+}
+""".strip()
+
 SAVE_QR_CODE_TEST = """
 if (pm.response.code === 200) {
     const json = pm.response.json();
@@ -126,6 +136,7 @@ collection = {
         {"key": "base_url", "value": "https://goluto-backend.onrender.com"},
         {"key": "consumer_token", "value": ""},
         {"key": "business_token", "value": ""},
+        {"key": "admin_token", "value": ""},
         {"key": "offer_id", "value": "1"},
         {"key": "branch_id", "value": "1"},
         {"key": "business_id", "value": "1"},
@@ -492,6 +503,7 @@ collection = {
                         "usage_limit_type": "one_time",
                         "usage_limit_count": 1,
                         "branch_ids": [1],
+                        "is_online": False,
                         "is_enabled": True,
                         "is_time_limited": False,
                     },
@@ -510,9 +522,33 @@ collection = {
                         "usage_limit_type": "once_per_week",
                         "usage_limit_count": 1,
                         "branch_ids": [1],
+                        "is_online": False,
                         "is_enabled": True,
                     },
                     auth_bearer="{{business_token}}",
+                ),
+                req(
+                    "Create Offer (online only)",
+                    "POST",
+                    "api/business/offers",
+                    body={
+                        "offer_type": "percentage_bill",
+                        "title": "Online 15% off",
+                        "description": "Available on the web shop only",
+                        "discount_percent": "15.00",
+                        "usage_limit_type": "one_time",
+                        "usage_limit_count": 1,
+                        "is_online": True,
+                        "external_url": "https://shop.example.com/deal",
+                        "external_url_label": "Shop online",
+                        "is_enabled": True,
+                        "is_time_limited": False,
+                    },
+                    auth_bearer="{{business_token}}",
+                    description=(
+                        "Online-only offer: set is_online=true and omit branch_ids "
+                        "(or send an empty list). Branches are optional when online."
+                    ),
                 ),
                 req(
                     "Get Offer",
@@ -544,6 +580,61 @@ collection = {
             ],
             auth_bearer="{{business_token}}",
             description="Requires business JWT. Run Auth → Business Login first.",
+        ),
+        folder(
+            "Admin",
+            [
+                req(
+                    "Login",
+                    "POST",
+                    "api/admin/auth/token",
+                    body={
+                        "email": "admin@example.com",
+                        "password": "your-password",
+                    },
+                    description="Staff/superuser JWT. Saves token to environment automatically.",
+                    test=ADMIN_LOGIN_TEST,
+                ),
+                req(
+                    "Import Offer Draft from URL",
+                    "POST",
+                    "api/admin/offers/import-from-url",
+                    body={"url": "https://example.com/product"},
+                    auth_bearer="{{admin_token}}",
+                    description=(
+                        "Scrapes a public product page into an offer draft (does not create). "
+                        "With GEMINI_API_KEY set, fills missing fields and adds "
+                        "suggested_category / suggested_discount_percent / suggested_discount_copy. "
+                        "Response includes ai_enriched and confidence."
+                    ),
+                ),
+                req(
+                    "Create Offer (online only)",
+                    "POST",
+                    "api/admin/offers",
+                    body={
+                        "business_id": 1,
+                        "offer_type": "item",
+                        "title": "Online gift card deal",
+                        "item_name": "Gift Card",
+                        "original_price": "50.00",
+                        "discounted_price": "40.00",
+                        "usage_limit_type": "one_time",
+                        "usage_limit_count": 1,
+                        "is_online": True,
+                        "external_url": "https://shop.example.com/gift-card",
+                        "external_url_label": "Buy online",
+                        "is_enabled": True,
+                    },
+                    auth_bearer="{{admin_token}}",
+                    description=(
+                        "Admin create online-only offer: is_online=true, "
+                        "no branch_ids required."
+                    ),
+                ),
+            ],
+            auth_bearer="{{admin_token}}",
+            description="Requires admin JWT. Run Admin → Login first.",
         ),
     ],
 }

@@ -116,12 +116,16 @@ class Offer(models.Model):
     business = models.ForeignKey(
         Business, on_delete=models.CASCADE, related_name="offers"
     )
-    branches = models.ManyToManyField(Branch, related_name="offers")
+    branches = models.ManyToManyField(Branch, related_name="offers", blank=True)
     offer_type = models.CharField(max_length=20, choices=OfferType.choices)
     redemption_mode = models.CharField(
         max_length=20,
         choices=RedemptionMode.choices,
         default=RedemptionMode.SCANNABLE,
+    )
+    is_online = models.BooleanField(
+        default=False,
+        help_text="Offer is available online (no in-store branch required when true).",
     )
     title = models.CharField(max_length=120)
     description = models.TextField(blank=True)

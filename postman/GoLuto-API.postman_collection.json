@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "59ba23cc-fca9-41d2-bc01-7bf48f5af572",
+    "_postman_id": "cc056e94-2c99-49d5-8d90-05187b99e9c1",
     "name": "GoLuto API",
     "description": "Discount Discovery API \u2014 categories, offers, map, consumer & business accounts.\n\n**Quick start**\n1. Import `GoLuto-Production.postman_environment.json` (or Local).\n2. Select the environment in Postman.\n3. Run **Auth \u2192 Consumer Login** or **Business Login** to store JWT tokens.\n4. Call protected endpoints in the Consumer / Business folders.\n\n**Live docs:** https://goluto-backend.onrender.com/api/docs/\n**OpenAPI schema:** https://goluto-backend.onrender.com/api/schema/",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -16,6 +16,10 @@
     },
     {
       "key": "business_token",
+      "value": ""
+    },
+    {
+      "key": "admin_token",
       "value": ""
     },
     {
@@ -1443,7 +1447,7 @@
             "description": "",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"offer_type\": \"percentage_bill\",\n  \"title\": \"10% off entire bill\",\n  \"description\": \"Weekday lunch special\",\n  \"discount_percent\": \"10.00\",\n  \"usage_limit_type\": \"one_time\",\n  \"usage_limit_count\": 1,\n  \"branch_ids\": [\n    1\n  ],\n  \"is_enabled\": true,\n  \"is_time_limited\": false\n}",
+              "raw": "{\n  \"offer_type\": \"percentage_bill\",\n  \"title\": \"10% off entire bill\",\n  \"description\": \"Weekday lunch special\",\n  \"discount_percent\": \"10.00\",\n  \"usage_limit_type\": \"one_time\",\n  \"usage_limit_count\": 1,\n  \"branch_ids\": [\n    1\n  ],\n  \"is_online\": false,\n  \"is_enabled\": true,\n  \"is_time_limited\": false\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1486,7 +1490,50 @@
             "description": "",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"offer_type\": \"item\",\n  \"title\": \"Burger deal\",\n  \"item_name\": \"Classic Burger\",\n  \"original_price\": \"12.00\",\n  \"discounted_price\": \"8.00\",\n  \"usage_limit_type\": \"once_per_week\",\n  \"usage_limit_count\": 1,\n  \"branch_ids\": [\n    1\n  ],\n  \"is_enabled\": true\n}",
+              "raw": "{\n  \"offer_type\": \"item\",\n  \"title\": \"Burger deal\",\n  \"item_name\": \"Classic Burger\",\n  \"original_price\": \"12.00\",\n  \"discounted_price\": \"8.00\",\n  \"usage_limit_type\": \"once_per_week\",\n  \"usage_limit_count\": 1,\n  \"branch_ids\": [\n    1\n  ],\n  \"is_online\": false,\n  \"is_enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{business_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Offer (online only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/business/offers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "business",
+                "offers"
+              ]
+            },
+            "description": "Online-only offer: set is_online=true and omit branch_ids (or send an empty list). Branches are optional when online.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offer_type\": \"percentage_bill\",\n  \"title\": \"Online 15% off\",\n  \"description\": \"Available on the web shop only\",\n  \"discount_percent\": \"15.00\",\n  \"usage_limit_type\": \"one_time\",\n  \"usage_limit_count\": 1,\n  \"is_online\": true,\n  \"external_url\": \"https://shop.example.com/deal\",\n  \"external_url_label\": \"Shop online\",\n  \"is_enabled\": true,\n  \"is_time_limited\": false\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1617,6 +1664,160 @@
           {
             "key": "token",
             "value": "{{business_token}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/auth/token",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "auth",
+                "token"
+              ]
+            },
+            "description": "Staff/superuser JWT. Saves token to environment automatically.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"your-password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.access) {",
+                  "        pm.environment.set('admin_token', json.access);",
+                  "        pm.collectionVariables.set('admin_token', json.access);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Import Offer Draft from URL",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/offers/import-from-url",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "offers",
+                "import-from-url"
+              ]
+            },
+            "description": "Scrapes a public product page into an offer draft (does not create). With GEMINI_API_KEY set, fills missing fields and adds suggested_category / suggested_discount_percent / suggested_discount_copy. Response includes ai_enriched and confidence.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://example.com/product\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Offer (online only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/offers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "offers"
+              ]
+            },
+            "description": "Admin create online-only offer: is_online=true, no branch_ids required.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"business_id\": 1,\n  \"offer_type\": \"item\",\n  \"title\": \"Online gift card deal\",\n  \"item_name\": \"Gift Card\",\n  \"original_price\": \"50.00\",\n  \"discounted_price\": \"40.00\",\n  \"usage_limit_type\": \"one_time\",\n  \"usage_limit_count\": 1,\n  \"is_online\": true,\n  \"external_url\": \"https://shop.example.com/gift-card\",\n  \"external_url_label\": \"Buy online\",\n  \"is_enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "description": "Requires admin JWT. Run Admin \u2192 Login first.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{admin_token}}",
             "type": "string"
           }
         ]

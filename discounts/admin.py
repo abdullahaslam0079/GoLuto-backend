@@ -118,6 +118,7 @@ class OfferAdmin(admin.ModelAdmin):
         "title",
         "offer_type",
         "redemption_mode",
+        "is_online",
         "discount_percent",
         "usage_limit_type",
         "is_enabled",
@@ -130,6 +131,7 @@ class OfferAdmin(admin.ModelAdmin):
     list_filter = (
         "offer_type",
         "redemption_mode",
+        "is_online",
         "is_enabled",
         "is_time_limited",
         "business__category",

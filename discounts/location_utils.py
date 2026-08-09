@@ -160,19 +160,34 @@ def filter_offers_for_location(
     offer_branch_ids = queryset.values_list("branches__id", flat=True).distinct()
     branches = list(Branch.objects.filter(id__in=offer_branch_ids))
     ordered_branch_ids, mode = resolve_location_branch_scope(branches, location)
-    if not ordered_branch_ids:
-        return queryset.none(), mode
 
     branch_id_set = set(ordered_branch_ids)
-    offers = list(queryset.filter(branches__id__in=ordered_branch_ids).distinct())
+    location_offers = (
+        list(queryset.filter(branches__id__in=ordered_branch_ids).distinct())
+        if ordered_branch_ids
+        else []
+    )
+    online_offers = list(queryset.filter(is_online=True).distinct())
+
+    offers_by_id: dict[int, Offer] = {offer.id: offer for offer in location_offers}
+    for offer in online_offers:
+        offers_by_id.setdefault(offer.id, offer)
+
+    if not offers_by_id:
+        return queryset.none(), mode
 
     def nearest_distance(offer: Offer) -> float:
-        matching = [branch for branch in offer.branches.all() if branch.id in branch_id_set]
-        if not matching:
-            return float("inf")
-        return min(branch_distance_km(branch, location) for branch in matching)
+        matching = [
+            branch for branch in offer.branches.all() if branch.id in branch_id_set
+        ]
+        if matching:
+            return min(branch_distance_km(branch, location) for branch in matching)
+        # Online-only (or online with out-of-scope branches) after nearby in-store offers.
+        return float("inf")
 
-    ordered_offer_ids = [offer.id for offer in sorted(offers, key=nearest_distance)]
+    ordered_offer_ids = [
+        offer.id for offer in sorted(offers_by_id.values(), key=nearest_distance)
+    ]
     return order_queryset_by_id_sequence(queryset, ordered_offer_ids), mode
 
 
@@ -182,6 +197,7 @@ def sort_offers_by_nearest_distance(
     """
     Rank all matching offers by nearest linked branch distance.
     Unlike filter_offers_for_location, distant offers are kept (not city/radius scoped).
+    Online-only offers (no branches) sort after offers with a known distance.
     """
     offers = list(queryset.distinct())
     if not offers:

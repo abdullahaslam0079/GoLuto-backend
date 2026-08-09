@@ -541,10 +541,32 @@ class AdminOfferListCreateAPIView(APIView):
 
 
 class AdminOfferImportFromUrlAPIView(APIView):
-    """Prefill offer fields from a public product page URL (does not create an offer)."""
+    """Prefill offer fields from a public product page URL (does not create an offer).
+
+    Scrapes JSON-LD / Open Graph first. When ``GEMINI_API_KEY`` is set, Gemini Flash
+    fills missing fields and suggests category / discount copy without overwriting
+    high-confidence scraped values. Still draft-only — does not create an offer.
+    """
 
     permission_classes = [IsAdminAccount]
 
+    @extend_schema(
+        summary="Import offer draft from product URL (admin)",
+        description=(
+            "Fetches a public product page and returns a draft offer payload. "
+            "With `GEMINI_API_KEY` configured, missing title/description/price may be "
+            "AI-filled and `suggested_category` / `suggested_discount_percent` / "
+            "`suggested_discount_copy` are added. Does not create an offer."
+        ),
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {"url": {"type": "string", "format": "uri"}},
+                "required": ["url"],
+            }
+        },
+        responses={200: dict},
+    )
     def post(self, request):
         url = (request.data.get("url") or "").strip()
         if not url:
@@ -557,7 +579,10 @@ class AdminOfferImportFromUrlAPIView(APIView):
             )
 
         try:
-            draft = import_product_from_url(url)
+            category_names = list(
+                Category.objects.order_by("name").values_list("name", flat=True)
+            )
+            draft = import_product_from_url(url, categories=category_names)
         except ProductImportError as exc:
             status_code = (
                 status.HTTP_400_BAD_REQUEST

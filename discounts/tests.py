@@ -689,3 +689,324 @@ class OfferPaymentAPITests(APITestCase):
         self.assertIn("counter", response.data["message"].lower())
         self.assertEqual(OfferScan.objects.count(), 1)
         self.assertEqual(OfferRedemption.objects.count(), 1)
+
+
+class AIEnrichmentTests(TestCase):
+    def test_skips_when_no_api_key(self):
+        from django.test import override_settings
+
+        from .ai_enrichment import enrich_product_draft
+
+        draft = {
+            "source_url": "https://example.com/p",
+            "title": "",
+            "description": "",
+            "detailed_description": "",
+            "original_price": None,
+            "currency": None,
+            "image_urls": ["https://example.com/a.jpg"],
+            "suggested_offer_type": "percentage_bill",
+            "confidence": {},
+            "warnings": ["Title not found", "Description not found", "Price not found"],
+        }
+        with override_settings(GEMINI_API_KEY=""):
+            result = enrich_product_draft(
+                draft,
+                categories=["Food", "Retail"],
+                page_text="Espresso machine on sale",
+            )
+        self.assertFalse(result["ai_enriched"])
+        self.assertEqual(result["title"], "")
+        self.assertIsNone(result["suggested_category"])
+        self.assertEqual(result["suggested_discount_copy"], "")
+
+    def test_merge_fills_blanks_without_overwriting_scraped(self):
+        from .ai_enrichment import _merge_ai_into_draft
+
+        draft = {
+            "source_url": "https://example.com/p",
+            "title": "Scraped Title",
+            "description": "",
+            "detailed_description": "",
+            "original_price": "19.99",
+            "currency": "EUR",
+            "image_urls": ["https://example.com/a.jpg"],
+            "suggested_offer_type": "item",
+            "confidence": {
+                "title": "json_ld",
+                "original_price": "json_ld",
+                "currency": "json_ld",
+            },
+            "warnings": ["Description not found"],
+        }
+        ai = {
+            "title": "AI Should Not Win",
+            "description": "Great espresso for home baristas.",
+            "detailed_description": "Detailed AI text about the espresso machine.",
+            "original_price": "1.00",
+            "currency": "USD",
+            "suggested_category": "Food",
+            "suggested_discount_percent": 15,
+            "suggested_discount_copy": "15% off your next espresso machine.",
+            "suggested_offer_type": "item",
+        }
+        result = _merge_ai_into_draft(draft, ai, category_names=["Food", "Retail"])
+        self.assertTrue(result["ai_enriched"])
+        self.assertEqual(result["title"], "Scraped Title")
+        self.assertEqual(result["confidence"]["title"], "json_ld")
+        self.assertEqual(result["original_price"], "19.99")
+        self.assertEqual(result["currency"], "EUR")
+        self.assertEqual(result["description"], "Great espresso for home baristas.")
+        self.assertEqual(result["confidence"]["description"], "ai")
+        self.assertEqual(result["suggested_category"], "Food")
+        self.assertEqual(result["suggested_discount_percent"], "15.00")
+        self.assertIn("espresso", result["suggested_discount_copy"].lower())
+        self.assertNotIn("Description not found", result["warnings"])
+
+    def test_ai_failure_returns_draft_with_warning(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+
+        from .ai_enrichment import enrich_product_draft
+
+        draft = {
+            "source_url": "https://example.com/p",
+            "title": "Only Title",
+            "description": "",
+            "detailed_description": "",
+            "original_price": None,
+            "currency": None,
+            "image_urls": ["https://example.com/a.jpg"],
+            "suggested_offer_type": "percentage_bill",
+            "confidence": {"title": "html"},
+            "warnings": ["Description not found", "Price not found"],
+        }
+        with override_settings(GEMINI_API_KEY="test-key", GEMINI_MODEL="gemini-2.0-flash"):
+            with patch(
+                "discounts.ai_enrichment._call_gemini",
+                side_effect=RuntimeError("boom"),
+            ):
+                with self.assertLogs("discounts.ai_enrichment", level="ERROR"):
+                    result = enrich_product_draft(
+                        draft,
+                        categories=["Food"],
+                        page_text="sparse page",
+                    )
+        self.assertFalse(result["ai_enriched"])
+        self.assertEqual(result["title"], "Only Title")
+        self.assertIn("ai_enrichment_failed", result["warnings"])
+
+    def test_import_sparse_page_without_api_key(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+
+        from .product_import import import_product_from_url
+
+        html = """
+        <html><head>
+          <title>Sparse Coffee Deal</title>
+          <meta property="og:image" content="https://cdn.example.com/coffee.jpg" />
+        </head><body><p>Limited espresso offer this week.</p></body></html>
+        """
+        with override_settings(GEMINI_API_KEY=""):
+            with patch("discounts.product_import._validate_public_http_url", return_value="https://example.com/sparse"):
+                with patch("discounts.product_import._fetch_html", return_value=html):
+                    draft = import_product_from_url(
+                        "https://example.com/sparse",
+                        categories=["Food", "Retail"],
+                    )
+        self.assertEqual(draft["title"], "Sparse Coffee Deal")
+        self.assertFalse(draft["ai_enriched"])
+        self.assertEqual(draft["suggested_discount_copy"], "")
+        self.assertIn("https://cdn.example.com/coffee.jpg", draft["image_urls"])
+        self.assertIn("Description not found", draft["warnings"])
+
+    def test_import_rich_page_keeps_scraped_fields(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+
+        from .product_import import import_product_from_url
+
+        html = """
+        <html><head>
+          <script type="application/ld+json">
+          {
+            "@type": "Product",
+            "name": "Classic Burger",
+            "description": "Beef burger with fries",
+            "image": "https://cdn.example.com/burger.jpg",
+            "offers": {"@type": "Offer", "price": "12.50", "priceCurrency": "EUR"}
+          }
+          </script>
+        </head><body></body></html>
+        """
+        ai_payload = {
+            "title": "Should Not Replace",
+            "description": "Should Not Replace Desc",
+            "detailed_description": "Should Not Replace Detail",
+            "original_price": "1.00",
+            "currency": "USD",
+            "suggested_category": "Food",
+            "suggested_discount_percent": 10,
+            "suggested_discount_copy": "10% off burgers today.",
+            "suggested_offer_type": "item",
+        }
+        with override_settings(GEMINI_API_KEY="test-key"):
+            with patch("discounts.product_import._validate_public_http_url", return_value="https://example.com/rich"):
+                with patch("discounts.product_import._fetch_html", return_value=html):
+                    with patch(
+                        "discounts.ai_enrichment._call_gemini",
+                        return_value=ai_payload,
+                    ):
+                        draft = import_product_from_url(
+                            "https://example.com/rich",
+                            categories=["Food"],
+                        )
+        self.assertEqual(draft["title"], "Classic Burger")
+        self.assertEqual(draft["original_price"], "12.50")
+        self.assertEqual(draft["currency"], "EUR")
+        self.assertEqual(draft["confidence"]["title"], "json_ld")
+        self.assertEqual(draft["suggested_category"], "Food")
+        self.assertEqual(draft["suggested_discount_percent"], "10.00")
+        self.assertTrue(draft["ai_enriched"])
+
+
+class OnlineOfferAPITests(APITestCase):
+    def setUp(self):
+        self.consumer = User.objects.create_user(
+            email="consumer@example.com",
+            password="testpass123",
+            account_type=User.AccountType.CONSUMER,
+        )
+        self.owner = User.objects.create_user(
+            email="owner@example.com",
+            password="testpass123",
+            account_type=User.AccountType.BUSINESS,
+        )
+        self.admin = User.objects.create_user(
+            email="admin@example.com",
+            password="testpass123",
+            account_type=User.AccountType.CONSUMER,
+            is_staff=True,
+        )
+        self.category = Category.objects.create(name="Food")
+        self.business = Business.objects.create(
+            owner=self.owner,
+            name="Online Shop",
+            category=self.category,
+        )
+        self.branch = Branch.objects.create(
+            business=self.business,
+            name="Berlin Store",
+            street="Main",
+            house_number="1",
+            postal_code="10115",
+            city="Berlin",
+            latitude=Decimal("52.520008"),
+            longitude=Decimal("13.404954"),
+        )
+        Address.objects.create(
+            user=self.consumer,
+            street="Unter den Linden",
+            house_number="1",
+            postal_code="10117",
+            city="Berlin",
+            county="Berlin",
+            latitude=Decimal("52.517036"),
+            longitude=Decimal("13.388860"),
+            is_default=True,
+        )
+
+    def test_business_create_online_only_offer_without_branches(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(
+            "/api/business/offers",
+            {
+                "offer_type": "percentage_bill",
+                "title": "Online 15% off",
+                "description": "Web only",
+                "discount_percent": "15.00",
+                "usage_limit_type": "one_time",
+                "is_online": True,
+                "is_enabled": True,
+                "external_url": "https://shop.example.com/deal",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["is_online"])
+        self.assertEqual(response.data["branches"], [])
+        offer = Offer.objects.get(pk=response.data["id"])
+        self.assertTrue(offer.is_online)
+        self.assertEqual(offer.branches.count(), 0)
+
+    def test_business_create_requires_branch_or_online(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(
+            "/api/business/offers",
+            {
+                "offer_type": "percentage_bill",
+                "title": "Missing location",
+                "discount_percent": "10.00",
+                "usage_limit_type": "one_time",
+                "is_enabled": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        errors = response.data.get("errors", response.data)
+        self.assertIn("branch_ids", errors)
+        self.assertIn("is_online", errors)
+
+    def test_admin_create_online_only_offer(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            "/api/admin/offers",
+            {
+                "business_id": self.business.id,
+                "offer_type": "item",
+                "title": "Admin online deal",
+                "item_name": "Gift Card",
+                "original_price": "50.00",
+                "discounted_price": "40.00",
+                "usage_limit_type": "one_time",
+                "is_online": True,
+                "is_enabled": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["is_online"])
+        self.assertEqual(response.data["branches"], [])
+
+    def test_consumer_offers_include_online_and_expose_flag(self):
+        online_offer = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Online Only Deal",
+            description="No store visit",
+            discount_percent=Decimal("12.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+            is_online=True,
+        )
+        in_store = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="In Store Deal",
+            description="Berlin only",
+            discount_percent=Decimal("10.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+            is_online=False,
+        )
+        in_store.branches.set([self.branch])
+
+        self.client.force_authenticate(user=self.consumer)
+        response = self.client.get("/api/offers")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        by_title = {offer["title"]: offer for offer in response.data}
+        self.assertIn("Online Only Deal", by_title)
+        self.assertIn("In Store Deal", by_title)
+        self.assertTrue(by_title["Online Only Deal"]["is_online"])
+        self.assertFalse(by_title["In Store Deal"]["is_online"])
+        self.assertIsNone(by_title["Online Only Deal"]["nearest_distance_km"])
+        self.assertEqual(online_offer.branches.count(), 0)

@@ -7,12 +7,14 @@ import json
 import re
 import socket
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
 from bs4 import BeautifulSoup
+
+from .ai_enrichment import enrich_product_draft
 
 USER_AGENT = (
     "Mozilla/5.0 (compatible; GoLutoBot/1.0; +https://goluto.app; "
@@ -21,6 +23,7 @@ USER_AGENT = (
 FETCH_TIMEOUT_SECONDS = 15
 MAX_RESPONSE_BYTES = 2_000_000
 MAX_IMAGES = 12
+MAX_PAGE_TEXT_CHARS = 8_000
 
 
 class ProductImportError(Exception):
@@ -30,7 +33,11 @@ class ProductImportError(Exception):
         super().__init__(message)
 
 
-def import_product_from_url(url: str) -> dict[str, Any]:
+def import_product_from_url(
+    url: str,
+    *,
+    categories: Sequence[str] | None = None,
+) -> dict[str, Any]:
     cleaned = (url or "").strip()
     if not cleaned:
         raise ProductImportError("invalid_url", "URL is required.")
@@ -49,7 +56,30 @@ def import_product_from_url(url: str) -> dict[str, Any]:
             "unsupported_page",
             "Could not extract product details from this page.",
         )
-    return draft
+
+    draft.setdefault("suggested_category", None)
+    draft.setdefault("suggested_discount_percent", None)
+    draft.setdefault("suggested_discount_copy", "")
+    draft["ai_enriched"] = False
+
+    page_text = _page_text_excerpt(soup)
+    return enrich_product_draft(
+        draft,
+        categories=list(categories or []),
+        page_text=page_text,
+    )
+
+
+def _page_text_excerpt(soup: BeautifulSoup) -> str:
+    """Visible page text for AI context (scripts/styles stripped)."""
+    clone = BeautifulSoup(str(soup), "lxml")
+    for tag in clone(["script", "style", "noscript", "svg", "iframe"]):
+        tag.decompose()
+    text = clone.get_text(separator=" ", strip=True)
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) <= MAX_PAGE_TEXT_CHARS:
+        return text
+    return text[: MAX_PAGE_TEXT_CHARS - 1].rstrip() + "…"
 
 
 def _validate_public_http_url(url: str) -> str:

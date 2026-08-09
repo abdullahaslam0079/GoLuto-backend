@@ -338,3 +338,8 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "GoLuto <noreply@golut
 # Locally you can set FIREBASE_CREDENTIALS_PATH to a JSON file path instead.
 FIREBASE_CREDENTIALS_JSON = os.environ.get("FIREBASE_CREDENTIALS_JSON", "")
 FIREBASE_CREDENTIALS_PATH = os.environ.get("FIREBASE_CREDENTIALS_PATH", "")
+
+# Optional Google Gemini enrichment for admin product URL import.
+# Without GEMINI_API_KEY, import returns scrape-only drafts (unchanged behavior).
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash").strip() or "gemini-2.0-flash"

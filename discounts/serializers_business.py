@@ -257,9 +257,10 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
         many=True,
         queryset=Branch.objects.none(),
         write_only=True,
+        required=False,
+        allow_empty=True,
         error_messages={
-            "required": "At least one branch must be selected.",
-            "empty": "At least one branch must be selected.",
+            "does_not_exist": "One or more selected branches were not found.",
         },
     )
     branches = BranchSerializer(many=True, read_only=True)
@@ -318,6 +319,7 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             "discounted_price",
             "usage_limit_type",
             "usage_limit_count",
+            "is_online",
             "branch_ids",
             "branches",
             "is_enabled",
@@ -549,14 +551,39 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             )
 
     def validate(self, attrs):
-        branches = attrs.pop("branch_ids", None)
-        if branches is not None:
+        branches = attrs.pop("branch_ids", serializers.empty)
+        if branches is not serializers.empty:
             self._validate_branches_belong_to_business(branches)
-            attrs["_branches"] = branches
-        elif self.instance is None:
+            attrs["_branches"] = list(branches)
+
+        is_online = attrs.get(
+            "is_online",
+            getattr(self.instance, "is_online", False),
+        )
+        if "_branches" in attrs:
+            effective_branches = attrs["_branches"]
+        elif self.instance is not None:
+            effective_branches = list(self.instance.branches.all())
+        else:
+            effective_branches = []
+
+        if not is_online and not effective_branches:
             raise serializers.ValidationError(
-                {"branch_ids": "At least one branch must be selected."}
+                {
+                    "branch_ids": (
+                        "Select at least one branch, or set is_online to true "
+                        "for an online-only offer."
+                    ),
+                    "is_online": (
+                        "Set is_online to true for an online-only offer, or "
+                        "select at least one branch."
+                    ),
+                }
             )
+
+        if self.instance is None and "_branches" not in attrs:
+            attrs["_branches"] = []
+
         self._validate_offer_type_fields(attrs)
         self._validate_usage_limits(attrs)
         self._validate_time_limits(attrs)
