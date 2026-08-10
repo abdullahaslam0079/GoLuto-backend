@@ -11,7 +11,7 @@ from .auth_utils import blacklist_user_tokens, logout_response_message
 from .password_reset import request_password_reset
 from .phone_auth import (
     get_or_create_consumer_from_firebase_claims,
-    verify_firebase_phone_id_token,
+    verify_firebase_id_token,
 )
 from .serializers import (
     AddressSerializer,
@@ -31,8 +31,8 @@ class LoginAPIView(TokenObtainPairView):
     serializer_class = LoginTokenObtainPairSerializer
 
 
-class PhoneAuthAPIView(APIView):
-    """Exchange a Firebase Phone Auth ID token for Django JWTs."""
+class FirebaseAuthAPIView(APIView):
+    """Exchange a Firebase Auth ID token (phone/Google/Apple) for Django JWTs."""
 
     authentication_classes = []
     permission_classes = [permissions.AllowAny]
@@ -42,9 +42,7 @@ class PhoneAuthAPIView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            claims = verify_firebase_phone_id_token(
-                serializer.validated_data["id_token"]
-            )
+            claims = verify_firebase_id_token(serializer.validated_data["id_token"])
             user = get_or_create_consumer_from_firebase_claims(claims)
         except AuthenticationFailed as exc:
             return Response(
@@ -76,6 +74,10 @@ class PhoneAuthAPIView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+# Backwards-compatible alias for phone clients.
+PhoneAuthAPIView = FirebaseAuthAPIView
 
 
 class LogoutAPIView(APIView):

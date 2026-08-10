@@ -153,8 +153,19 @@ collection = {
                     "api/auth/phone",
                     body={"id_token": "<firebase_id_token>"},
                     description=(
-                        "Preferred consumer auth. Exchange a Firebase Phone Auth "
-                        "ID token for GoLuto JWTs. Saves access token automatically."
+                        "Alias of Firebase Login. Exchange a Firebase Phone Auth "
+                        "ID token for GoLuto JWTs."
+                    ),
+                    test=CONSUMER_LOGIN_TEST,
+                ),
+                req(
+                    "Firebase Login (phone/Google/Apple)",
+                    "POST",
+                    "api/auth/firebase",
+                    body={"id_token": "<firebase_id_token>"},
+                    description=(
+                        "Preferred consumer auth for phone, Google, or Apple. "
+                        "Exchange a Firebase ID token for GoLuto JWTs."
                     ),
                     test=CONSUMER_LOGIN_TEST,
                 ),

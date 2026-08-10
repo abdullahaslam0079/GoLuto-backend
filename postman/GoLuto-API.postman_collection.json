@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "23354270-51f7-466f-8e6f-7f821145260a",
+    "_postman_id": "32dbdb4a-968d-4b03-83b3-f62706902323",
     "name": "GoLuto API",
     "description": "Discount Discovery API \u2014 categories, offers, map, consumer & business accounts.\n\n**Quick start**\n1. Import `GoLuto-Production.postman_environment.json` (or Local).\n2. Select the environment in Postman.\n3. Run **Auth \u2192 Consumer Login** or **Business Login** to store JWT tokens.\n4. Call protected endpoints in the Consumer / Business folders.\n\n**Live docs:** https://goluto-backend.onrender.com/api/docs/\n**OpenAPI schema:** https://goluto-backend.onrender.com/api/schema/",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -68,7 +68,57 @@
                 "phone"
               ]
             },
-            "description": "Preferred consumer auth. Exchange a Firebase Phone Auth ID token for GoLuto JWTs. Saves access token automatically.",
+            "description": "Alias of Firebase Login. Exchange a Firebase Phone Auth ID token for GoLuto JWTs.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_token\": \"<firebase_id_token>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.access) {",
+                  "        pm.environment.set('consumer_token', json.access);",
+                  "        pm.collectionVariables.set('consumer_token', json.access);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Firebase Login (phone/Google/Apple)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/firebase",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "firebase"
+              ]
+            },
+            "description": "Preferred consumer auth for phone, Google, or Apple. Exchange a Firebase ID token for GoLuto JWTs.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"id_token\": \"<firebase_id_token>\"\n}",

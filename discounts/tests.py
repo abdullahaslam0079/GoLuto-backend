@@ -1027,7 +1027,7 @@ class PhoneAuthAPITests(APITestCase):
 
         claims = {"uid": "firebase-uid-1", "phone_number": "+491701234567"}
         with patch(
-            "discounts.views_auth.verify_firebase_phone_id_token",
+            "discounts.views_auth.verify_firebase_id_token",
             return_value=claims,
         ):
             response = self.client.post(
@@ -1060,7 +1060,7 @@ class PhoneAuthAPITests(APITestCase):
         from unittest.mock import patch
 
         with patch(
-            "discounts.views_auth.verify_firebase_phone_id_token",
+            "discounts.views_auth.verify_firebase_id_token",
             return_value={"uid": "existing-uid", "phone_number": "+491709999999"},
         ):
             response = self.client.post(
@@ -1077,7 +1077,7 @@ class PhoneAuthAPITests(APITestCase):
         from unittest.mock import patch
 
         with patch(
-            "discounts.views_auth.verify_firebase_phone_id_token",
+            "discounts.views_auth.verify_firebase_id_token",
             return_value={"uid": "biz-uid", "phone_number": "+491111111111"},
         ):
             response = self.client.post(
@@ -1093,7 +1093,7 @@ class PhoneAuthAPITests(APITestCase):
         from unittest.mock import patch
 
         with patch(
-            "discounts.views_auth.verify_firebase_phone_id_token",
+            "discounts.views_auth.verify_firebase_id_token",
             side_effect=AuthenticationFailed("Invalid or expired Firebase ID token."),
         ):
             response = self.client.post(
@@ -1107,3 +1107,51 @@ class PhoneAuthAPITests(APITestCase):
     def test_phone_auth_requires_id_token(self):
         response = self.client.post("/api/auth/phone", {}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_google_auth_creates_consumer_with_email(self):
+        from unittest.mock import patch
+
+        claims = {
+            "uid": "google-uid-1",
+            "email": "alex@gmail.com",
+            "name": "Alex Morgan",
+            "firebase": {"sign_in_provider": "google.com"},
+        }
+        with patch(
+            "discounts.views_auth.verify_firebase_id_token",
+            return_value=claims,
+        ):
+            response = self.client.post(
+                "/api/auth/firebase",
+                {"id_token": "fake-google-token"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["user"]["email"], "alex@gmail.com")
+        self.assertEqual(response.data["user"]["name"], "Alex Morgan")
+        user = User.objects.get(firebase_uid="google-uid-1")
+        self.assertEqual(user.email, "alex@gmail.com")
+        self.assertIsNone(user.phone)
+
+    def test_apple_auth_creates_consumer_without_email(self):
+        from unittest.mock import patch
+
+        claims = {
+            "uid": "apple-uid-1",
+            "firebase": {"sign_in_provider": "apple.com"},
+        }
+        with patch(
+            "discounts.views_auth.verify_firebase_id_token",
+            return_value=claims,
+        ):
+            response = self.client.post(
+                "/api/auth/firebase",
+                {"id_token": "fake-apple-token"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user = User.objects.get(firebase_uid="apple-uid-1")
+        self.assertTrue(user.email.endswith("@firebase.goluto.local"))
+        self.assertFalse(user.has_usable_password())

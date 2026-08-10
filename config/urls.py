@@ -25,6 +25,7 @@ from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
 from discounts.views_auth import (
     ForgotPasswordAPIView,
+    FirebaseAuthAPIView,
     LoginAPIView,
     LogoutAPIView,
     PhoneAuthAPIView,
@@ -43,6 +44,7 @@ urlpatterns = [
     path("api/auth/register", RegisterAPIView.as_view(), name="auth-register"),
     path("api/auth/token", LoginAPIView.as_view(), name="auth-token"),
     path("api/auth/phone", PhoneAuthAPIView.as_view(), name="auth-phone"),
+    path("api/auth/firebase", FirebaseAuthAPIView.as_view(), name="auth-firebase"),
     path("api/auth/logout", LogoutAPIView.as_view(), name="auth-logout"),
     path(
         "api/auth/token/refresh",

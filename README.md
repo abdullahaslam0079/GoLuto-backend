@@ -41,9 +41,10 @@ Regenerate the collection after endpoint changes: `python3 postman/generate_coll
 
 ## Auth (JWT)
 
-Consumer apps use **Firebase Phone Auth**. The app verifies the phone with Firebase, then exchanges the Firebase ID token for GoLuto JWTs:
+Consumer apps use **Firebase Auth** (phone OTP, Google, or Apple). The app signs in with Firebase, then exchanges the Firebase ID token for GoLuto JWTs:
 
-- `POST /api/auth/phone` — `{ "id_token": "<firebase_id_token>" }` → `access`, `refresh`, `user`, `addresses`
+- `POST /api/auth/firebase` — `{ "id_token": "<firebase_id_token>" }` → `access`, `refresh`, `user`, `addresses`
+- `POST /api/auth/phone` — same as `/api/auth/firebase` (backwards-compatible alias)
 - `POST /api/auth/token/refresh` — `refresh`
 - Protected routes: `Authorization: Bearer <access>`
 
