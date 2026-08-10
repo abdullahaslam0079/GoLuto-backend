@@ -44,3 +44,7 @@ services:
         sync: false
       - key: AWS_QUERYSTRING_AUTH
         value: "False"
+      # Firebase Admin (phone / Google / Apple → JWT). Paste the full
+      # service-account JSON string in the Render dashboard.
+      - key: FIREBASE_CREDENTIALS_JSON
+        sync: false

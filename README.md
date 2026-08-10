@@ -52,6 +52,28 @@ Requires the same Firebase Admin credentials used for FCM (`FIREBASE_CREDENTIALS
 
 Email/password endpoints remain available for business/admin and legacy tooling (`/api/auth/register`, `/api/auth/token`, password reset).
 
+### Firebase Admin credentials
+
+Without these, `POST /api/auth/firebase` returns **401** (`Firebase authentication is unavailable…` or `Invalid or expired Firebase ID token.`).
+
+**Local:** in `.env` set either:
+
+```bash
+FIREBASE_CREDENTIALS_PATH=/absolute/path/to/firebase-adminsdk.json
+# or
+FIREBASE_CREDENTIALS_JSON={"type":"service_account",...}
+```
+
+Download the key from [Firebase Console](https://console.firebase.google.com/) → Project settings → Service accounts → Generate new private key. The `project_id` must match the mobile apps (`goluto-c5020`).
+
+**Render (production):** Web Service → Environment → add `FIREBASE_CREDENTIALS_JSON` with the **entire** service-account JSON as one line (minified). Do not use `FIREBASE_CREDENTIALS_PATH` on Render unless you also upload a [Secret File](https://render.com/docs/configure-environment-variables#secret-files). Redeploy after setting it.
+
+Quick minify for pasting into Render:
+
+```bash
+python3 -c 'import json,sys; print(json.dumps(json.load(open("secrets/firebase-adminsdk.json")), separators=(",",":")))'
+```
+
 ## Deploy on Render
 
 1. Push this repo to GitHub (see below).
@@ -61,6 +83,7 @@ Email/password endpoints remain available for business/admin and legacy tooling 
    - `DEBUG=False`
    - `SECRET_KEY` (long random string)
    - `DATABASE_URL` (from Render Postgres **Internal Database URL**)
+   - `FIREBASE_CREDENTIALS_JSON` — full Firebase service-account JSON (required for consumer Google/phone/Apple login)
    - `ALLOWED_HOSTS` optional — if unset on Render, `RENDER_EXTERNAL_HOSTNAME` is used when `RENDER` is set (see `config/settings.py`).
    - **Media storage (required):** Render’s disk is wiped on restart/redeploy, so logos and offer images must live in object storage. Set the `AWS_*` vars below (Cloudflare R2 is free-tier friendly).
 
