@@ -33,6 +33,20 @@ class User(AbstractUser):
 
     username = None
     email = models.EmailField(unique=True)
+    phone = models.CharField(
+        max_length=20,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="E.164 phone number from Firebase Phone Auth.",
+    )
+    firebase_uid = models.CharField(
+        max_length=128,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Firebase Auth UID linked to this account.",
+    )
     account_type = models.CharField(
         max_length=20,
         choices=AccountType.choices,
@@ -48,7 +62,7 @@ class User(AbstractUser):
         return self.account_type == self.AccountType.BUSINESS
 
     def __str__(self) -> str:
-        return self.email
+        return self.phone or self.email
 
 
 class Category(models.Model):

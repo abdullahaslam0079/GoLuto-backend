@@ -1,14 +1,23 @@
 from django.contrib.auth import get_user_model
 from rest_framework import generics, permissions, status
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .auth_utils import blacklist_user_tokens, logout_response_message
 from .password_reset import request_password_reset
+from .phone_auth import (
+    get_or_create_consumer_from_firebase_claims,
+    verify_firebase_phone_id_token,
+)
 from .serializers import (
+    AddressSerializer,
     ForgotPasswordSerializer,
+    LoginUserSerializer,
+    PhoneAuthSerializer,
     LoginTokenObtainPairSerializer,
     RegisterSerializer,
     ResetPasswordSerializer,
@@ -20,6 +29,53 @@ User = get_user_model()
 class LoginAPIView(TokenObtainPairView):
     authentication_classes = []
     serializer_class = LoginTokenObtainPairSerializer
+
+
+class PhoneAuthAPIView(APIView):
+    """Exchange a Firebase Phone Auth ID token for Django JWTs."""
+
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = PhoneAuthSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            claims = verify_firebase_phone_id_token(
+                serializer.validated_data["id_token"]
+            )
+            user = get_or_create_consumer_from_firebase_claims(claims)
+        except AuthenticationFailed as exc:
+            return Response(
+                {
+                    "message": str(exc.detail),
+                    "errors": {"id_token": [str(exc.detail)]},
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        if not user.is_active:
+            return Response(
+                {
+                    "message": "This account is inactive.",
+                    "errors": {"detail": ["This account is inactive."]},
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": LoginUserSerializer(user).data,
+                "addresses": AddressSerializer(
+                    user.addresses.order_by("-is_default", "id"), many=True
+                ).data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class LogoutAPIView(APIView):

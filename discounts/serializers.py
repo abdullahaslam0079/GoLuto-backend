@@ -556,7 +556,7 @@ class LoginUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("id", "email", "name")
+        fields = ("id", "email", "phone", "name")
 
     def get_id(self, obj: User) -> str:
         return str(obj.pk)
@@ -565,11 +565,28 @@ class LoginUserSerializer(serializers.ModelSerializer):
         return obj.get_full_name().strip()
 
 
+class PhoneAuthSerializer(serializers.Serializer):
+    id_token = serializers.CharField(
+        trim_whitespace=True,
+        error_messages={
+            "required": "Firebase ID token is required.",
+            "blank": "Firebase ID token cannot be empty.",
+        },
+    )
+
+    def validate_id_token(self, value: str) -> str:
+        token = value.strip()
+        if not token:
+            raise serializers.ValidationError("Firebase ID token cannot be empty.")
+        return token
+
+
 class ConsumerProfileSerializer(serializers.Serializer):
-    """Consumer self-service profile. Email is read-only; name is editable."""
+    """Consumer self-service profile. Phone/email are read-only; name is editable."""
 
     id = serializers.SerializerMethodField(read_only=True)
     email = serializers.EmailField(read_only=True)
+    phone = serializers.CharField(read_only=True, allow_null=True, required=False)
     name = serializers.CharField(
         max_length=301,
         trim_whitespace=True,
@@ -586,6 +603,7 @@ class ConsumerProfileSerializer(serializers.Serializer):
         return {
             "id": str(instance.pk),
             "email": instance.email,
+            "phone": instance.phone,
             "name": instance.get_full_name().strip(),
         }
 

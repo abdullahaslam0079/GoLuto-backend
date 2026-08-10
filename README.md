@@ -41,10 +41,15 @@ Regenerate the collection after endpoint changes: `python3 postman/generate_coll
 
 ## Auth (JWT)
 
-- `POST /api/auth/register` — `email`, `password`, `password_confirm`
-- `POST /api/auth/token` — `email`, `password` → `access`, `refresh`
+Consumer apps use **Firebase Phone Auth**. The app verifies the phone with Firebase, then exchanges the Firebase ID token for GoLuto JWTs:
+
+- `POST /api/auth/phone` — `{ "id_token": "<firebase_id_token>" }` → `access`, `refresh`, `user`, `addresses`
 - `POST /api/auth/token/refresh` — `refresh`
 - Protected routes: `Authorization: Bearer <access>`
+
+Requires the same Firebase Admin credentials used for FCM (`FIREBASE_CREDENTIALS_JSON` or `FIREBASE_CREDENTIALS_PATH`).
+
+Email/password endpoints remain available for business/admin and legacy tooling (`/api/auth/register`, `/api/auth/token`, password reset).
 
 ## Deploy on Render
 

@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "cc056e94-2c99-49d5-8d90-05187b99e9c1",
+    "_postman_id": "23354270-51f7-466f-8e6f-7f821145260a",
     "name": "GoLuto API",
     "description": "Discount Discovery API \u2014 categories, offers, map, consumer & business accounts.\n\n**Quick start**\n1. Import `GoLuto-Production.postman_environment.json` (or Local).\n2. Select the environment in Postman.\n3. Run **Auth \u2192 Consumer Login** or **Business Login** to store JWT tokens.\n4. Call protected endpoints in the Consumer / Business folders.\n\n**Live docs:** https://goluto-backend.onrender.com/api/docs/\n**OpenAPI schema:** https://goluto-backend.onrender.com/api/schema/",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -48,7 +48,57 @@
       "name": "Auth \u2014 Consumer",
       "item": [
         {
-          "name": "Register",
+          "name": "Phone Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/phone",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "phone"
+              ]
+            },
+            "description": "Preferred consumer auth. Exchange a Firebase Phone Auth ID token for GoLuto JWTs. Saves access token automatically.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_token\": \"<firebase_id_token>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.access) {",
+                  "        pm.environment.set('consumer_token', json.access);",
+                  "        pm.collectionVariables.set('consumer_token', json.access);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register (email legacy)",
           "request": {
             "method": "POST",
             "header": [
@@ -68,7 +118,7 @@
                 "register"
               ]
             },
-            "description": "Create a consumer account.",
+            "description": "Legacy email/password consumer registration.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"password_confirm\": \"SecurePass123!\"\n}",
@@ -81,7 +131,7 @@
           }
         },
         {
-          "name": "Login",
+          "name": "Login (email legacy)",
           "request": {
             "method": "POST",
             "header": [
@@ -101,7 +151,7 @@
                 "token"
               ]
             },
-            "description": "Returns JWT access token. Saves token to environment automatically.",
+            "description": "Legacy email/password login. Prefer Phone Login.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"consumer@example.com\",\n  \"password\": \"your-password\"\n}",

@@ -1010,3 +1010,100 @@ class OnlineOfferAPITests(APITestCase):
         self.assertFalse(by_title["In Store Deal"]["is_online"])
         self.assertIsNone(by_title["Online Only Deal"]["nearest_distance_km"])
         self.assertEqual(online_offer.branches.count(), 0)
+
+
+class PhoneAuthAPITests(APITestCase):
+    def setUp(self):
+        self.business_user = User.objects.create_user(
+            email="biz-phone@example.com",
+            password="testpass123",
+            account_type=User.AccountType.BUSINESS,
+            phone="+491111111111",
+            firebase_uid="biz-uid",
+        )
+
+    def test_phone_auth_creates_consumer(self):
+        from unittest.mock import patch
+
+        claims = {"uid": "firebase-uid-1", "phone_number": "+491701234567"}
+        with patch(
+            "discounts.views_auth.verify_firebase_phone_id_token",
+            return_value=claims,
+        ):
+            response = self.client.post(
+                "/api/auth/phone",
+                {"id_token": "fake-token"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+        self.assertEqual(response.data["user"]["phone"], "+491701234567")
+        user = User.objects.get(firebase_uid="firebase-uid-1")
+        self.assertEqual(user.account_type, User.AccountType.CONSUMER)
+        self.assertEqual(user.phone, "+491701234567")
+        self.assertTrue(user.email.endswith("@phone.goluto.local"))
+        self.assertFalse(user.has_usable_password())
+
+    def test_phone_auth_logs_in_existing_consumer(self):
+        existing = User.objects.create_user(
+            email="491709999999@phone.goluto.local",
+            password="unused",
+            account_type=User.AccountType.CONSUMER,
+            phone="+491709999999",
+            firebase_uid="existing-uid",
+        )
+        existing.set_unusable_password()
+        existing.save()
+
+        from unittest.mock import patch
+
+        with patch(
+            "discounts.views_auth.verify_firebase_phone_id_token",
+            return_value={"uid": "existing-uid", "phone_number": "+491709999999"},
+        ):
+            response = self.client.post(
+                "/api/auth/phone",
+                {"id_token": "fake-token"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["user"]["id"], str(existing.pk))
+        self.assertEqual(User.objects.filter(phone="+491709999999").count(), 1)
+
+    def test_phone_auth_rejects_business_account(self):
+        from unittest.mock import patch
+
+        with patch(
+            "discounts.views_auth.verify_firebase_phone_id_token",
+            return_value={"uid": "biz-uid", "phone_number": "+491111111111"},
+        ):
+            response = self.client.post(
+                "/api/auth/phone",
+                {"id_token": "fake-token"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_phone_auth_rejects_invalid_token(self):
+        from rest_framework.exceptions import AuthenticationFailed
+        from unittest.mock import patch
+
+        with patch(
+            "discounts.views_auth.verify_firebase_phone_id_token",
+            side_effect=AuthenticationFailed("Invalid or expired Firebase ID token."),
+        ):
+            response = self.client.post(
+                "/api/auth/phone",
+                {"id_token": "bad-token"},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_phone_auth_requires_id_token(self):
+        response = self.client.post("/api/auth/phone", {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

@@ -43,12 +43,20 @@ class UserAdmin(BaseUserAdmin):
     add_form = UserCreationForm
 
     ordering = ("email",)
-    list_display = ("email", "account_type", "is_staff", "is_active", "is_superuser")
-    search_fields = ("email",)
+    list_display = (
+        "email",
+        "phone",
+        "account_type",
+        "is_staff",
+        "is_active",
+        "is_superuser",
+    )
+    search_fields = ("email", "phone", "firebase_uid")
     list_filter = ("account_type", "is_staff", "is_superuser", "is_active")
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
+        ("Phone auth", {"fields": ("phone", "firebase_uid")}),
         ("Account", {"fields": ("account_type",)}),
         (
             "Permissions",

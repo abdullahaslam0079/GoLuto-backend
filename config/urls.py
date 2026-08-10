@@ -27,6 +27,7 @@ from discounts.views_auth import (
     ForgotPasswordAPIView,
     LoginAPIView,
     LogoutAPIView,
+    PhoneAuthAPIView,
     RegisterAPIView,
     ResetPasswordAPIView,
 )
@@ -41,6 +42,7 @@ urlpatterns = [
     ),
     path("api/auth/register", RegisterAPIView.as_view(), name="auth-register"),
     path("api/auth/token", LoginAPIView.as_view(), name="auth-token"),
+    path("api/auth/phone", PhoneAuthAPIView.as_view(), name="auth-phone"),
     path("api/auth/logout", LogoutAPIView.as_view(), name="auth-logout"),
     path(
         "api/auth/token/refresh",

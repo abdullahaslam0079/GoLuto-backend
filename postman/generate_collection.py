@@ -148,7 +148,18 @@ collection = {
             "Auth — Consumer",
             [
                 req(
-                    "Register",
+                    "Phone Login",
+                    "POST",
+                    "api/auth/phone",
+                    body={"id_token": "<firebase_id_token>"},
+                    description=(
+                        "Preferred consumer auth. Exchange a Firebase Phone Auth "
+                        "ID token for GoLuto JWTs. Saves access token automatically."
+                    ),
+                    test=CONSUMER_LOGIN_TEST,
+                ),
+                req(
+                    "Register (email legacy)",
                     "POST",
                     "api/auth/register",
                     body={
@@ -157,17 +168,17 @@ collection = {
                         "password": "SecurePass123!",
                         "password_confirm": "SecurePass123!",
                     },
-                    description="Create a consumer account.",
+                    description="Legacy email/password consumer registration.",
                 ),
                 req(
-                    "Login",
+                    "Login (email legacy)",
                     "POST",
                     "api/auth/token",
                     body={
                         "email": "consumer@example.com",
                         "password": "your-password",
                     },
-                    description="Returns JWT access token. Saves token to environment automatically.",
+                    description="Legacy email/password login. Prefer Phone Login.",
                     test=CONSUMER_LOGIN_TEST,
                 ),
                 req(
