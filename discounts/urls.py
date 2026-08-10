@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    BranchLikeAPIView,
     BranchOffersAPIView,
     BusinessLikeAPIView,
     BusinessOffersAPIView,
@@ -27,6 +28,7 @@ from .views import (
     UserAvailedOffersAPIView,
     UserFavoritesAPIView,
     UserPreferencesAPIView,
+    UserProfileAPIView,
 )
 from .views_admin import (
     AdminAnalyticsOverviewAPIView,
@@ -108,6 +110,11 @@ urlpatterns = [
         name="business-like",
     ),
     path(
+        "branches/<int:branch_id>/like",
+        BranchLikeAPIView.as_view(),
+        name="branch-like",
+    ),
+    path(
         "offers/<int:offer_id>/scan",
         OfferScanAPIView.as_view(),
         name="offer-scan",
@@ -133,6 +140,7 @@ urlpatterns = [
         name="user-availed-offers",
     ),
     path("user/favorites", UserFavoritesAPIView.as_view(), name="user-favorites"),
+    path("user/profile", UserProfileAPIView.as_view(), name="user-profile"),
     path("user/preferences", UserPreferencesAPIView.as_view(), name="user-preferences"),
     path("devices", DeviceTokenRegisterAPIView.as_view(), name="device-register"),
     path(

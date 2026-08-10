@@ -565,6 +565,47 @@ class LoginUserSerializer(serializers.ModelSerializer):
         return obj.get_full_name().strip()
 
 
+class ConsumerProfileSerializer(serializers.Serializer):
+    """Consumer self-service profile. Email is read-only; name is editable."""
+
+    id = serializers.SerializerMethodField(read_only=True)
+    email = serializers.EmailField(read_only=True)
+    name = serializers.CharField(
+        max_length=301,
+        trim_whitespace=True,
+        error_messages={
+            "required": "Full name is required.",
+            "blank": "Full name cannot be empty.",
+        },
+    )
+
+    def get_id(self, obj: User) -> str:
+        return str(obj.pk)
+
+    def to_representation(self, instance: User) -> dict:
+        return {
+            "id": str(instance.pk),
+            "email": instance.email,
+            "name": instance.get_full_name().strip(),
+        }
+
+    def validate_name(self, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise serializers.ValidationError("Full name is required.")
+        return cleaned
+
+    def update(self, instance: User, validated_data: dict) -> User:
+        if "name" not in validated_data:
+            return instance
+        name = validated_data["name"]
+        first_name, _, last_name = name.partition(" ")
+        instance.first_name = first_name
+        instance.last_name = last_name
+        instance.save(update_fields=["first_name", "last_name"])
+        return instance
+
+
 class AddressSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
     street = serializers.CharField(

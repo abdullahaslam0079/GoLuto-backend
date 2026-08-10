@@ -345,6 +345,28 @@ class BusinessLike(models.Model):
         return f"BusinessLike<{self.user_id}:{self.business_id}>"
 
 
+class BranchLike(models.Model):
+    """Per-branch favorite. Consumers favorite specific store locations."""
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="branch_likes"
+    )
+    branch = models.ForeignKey(
+        Branch, on_delete=models.CASCADE, related_name="likes"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "branch"], name="unique_branch_like_per_user"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"BranchLike<{self.user_id}:{self.branch_id}>"
+
+
 class OfferViewEvent(models.Model):
     user = models.ForeignKey(
         User,

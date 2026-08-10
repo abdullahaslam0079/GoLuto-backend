@@ -18,7 +18,9 @@ from .engagement_utils import (
     pick_featured_offers_one_per_business,
     record_business_view,
     record_offer_view,
+    set_branch_like,
     set_business_like,
+    toggle_branch_like,
     toggle_business_like,
     toggle_offer_like,
 )
@@ -46,6 +48,7 @@ from .permissions import IsConsumerAccount
 from .serializers import (
     AddressSerializer,
     CategorySerializer,
+    ConsumerProfileSerializer,
     DeviceTokenSerializer,
     DiscountOfferSerializer,
     MapBranchSerializer,
@@ -653,8 +656,35 @@ class BusinessLikeAPIView(APIView):
         )
 
 
+class BranchLikeAPIView(APIView):
+    """Favorite / unfavorite a specific store branch."""
+
+    permission_classes = [permissions.IsAuthenticated, IsConsumerAccount]
+
+    def post(self, request, branch_id):
+        branch = get_object_or_404(Branch, pk=branch_id)
+        if "liked" in request.data:
+            liked = request.data.get("liked")
+            if isinstance(liked, str):
+                liked = liked.lower() in ("1", "true", "yes")
+            is_liked, stats = set_branch_like(
+                request.user, branch, liked=bool(liked)
+            )
+        else:
+            is_liked, stats = toggle_branch_like(request.user, branch)
+        return Response(
+            {
+                "message": "Branch like updated.",
+                "is_liked": is_liked,
+                "like_count": stats.like_count,
+                "branch_id": branch.id,
+                "business_id": branch.business_id,
+            }
+        )
+
+
 class UserFavoritesAPIView(UserLocationContextMixin, APIView):
-    """List branches for businesses the consumer has favorited (liked)."""
+    """List branches the consumer has favorited."""
 
     permission_classes = [permissions.IsAuthenticated, IsConsumerAccount]
 
@@ -669,9 +699,14 @@ class UserFavoritesAPIView(UserLocationContextMixin, APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        from .models import BusinessLike
+        from .models import BranchLike, BusinessLike
 
         location = self.get_user_location()
+        liked_branch_ids = list(
+            BranchLike.objects.filter(user=request.user)
+            .order_by("-created_at")
+            .values_list("branch_id", flat=True)
+        )
         liked_business_ids = list(
             BusinessLike.objects.filter(user=request.user)
             .order_by("-created_at")
@@ -692,8 +727,40 @@ class UserFavoritesAPIView(UserLocationContextMixin, APIView):
                 results=serializer.data,
                 message="Favorites retrieved successfully.",
                 errors={},
+                liked_branch_ids=liked_branch_ids,
                 liked_business_ids=liked_business_ids,
             )
+        )
+
+
+class UserProfileAPIView(APIView):
+    """Read / update the authenticated consumer's profile (name only)."""
+
+    permission_classes = [permissions.IsAuthenticated, IsConsumerAccount]
+
+    def get(self, request):
+        serializer = ConsumerProfileSerializer(request.user)
+        return Response(serializer.data)
+
+    def put(self, request):
+        return self._update(request, partial=False)
+
+    def patch(self, request):
+        return self._update(request, partial=True)
+
+    def _update(self, request, *, partial: bool):
+        serializer = ConsumerProfileSerializer(
+            request.user,
+            data=request.data,
+            partial=partial,
+        )
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(
+            {
+                "message": "Profile updated successfully.",
+                **ConsumerProfileSerializer(user).data,
+            }
         )
 
 

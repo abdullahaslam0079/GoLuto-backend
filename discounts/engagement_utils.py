@@ -5,9 +5,11 @@ from django.db.models import F
 from django.utils import timezone
 
 from .models import (
+    Branch,
     Business,
     BusinessEngagementStats,
     BusinessLike,
+    BranchLike,
     Offer,
     OfferEngagementStats,
     OfferLike,
@@ -125,6 +127,47 @@ def set_business_like(
     return liked, stats
 
 
+def _sync_business_like_for_branch(user, branch: Branch) -> None:
+    """Keep BusinessLike in sync: present iff user likes any branch of the business."""
+    business = branch.business
+    has_branch_like = BranchLike.objects.filter(
+        user=user, branch__business=business
+    ).exists()
+    set_business_like(user, business, liked=has_branch_like)
+
+
+@transaction.atomic
+def toggle_branch_like(user, branch: Branch) -> tuple[bool, BusinessEngagementStats]:
+    like = BranchLike.objects.filter(user=user, branch=branch).first()
+    if like:
+        like.delete()
+        _sync_business_like_for_branch(user, branch)
+        return False, ensure_business_engagement_stats(branch.business)
+
+    BranchLike.objects.create(user=user, branch=branch)
+    _sync_business_like_for_branch(user, branch)
+    return True, ensure_business_engagement_stats(branch.business)
+
+
+@transaction.atomic
+def set_branch_like(
+    user, branch: Branch, *, liked: bool
+) -> tuple[bool, BusinessEngagementStats]:
+    like = BranchLike.objects.filter(user=user, branch=branch).first()
+
+    if liked and like is None:
+        BranchLike.objects.create(user=user, branch=branch)
+        _sync_business_like_for_branch(user, branch)
+        return True, ensure_business_engagement_stats(branch.business)
+
+    if not liked and like is not None:
+        like.delete()
+        _sync_business_like_for_branch(user, branch)
+        return False, ensure_business_engagement_stats(branch.business)
+
+    return liked, ensure_business_engagement_stats(branch.business)
+
+
 def user_liked_offer_ids(user, offer_ids: list[int]) -> set[int]:
     if not user or not user.is_authenticated or not offer_ids:
         return set()
@@ -145,57 +188,38 @@ def user_liked_business_ids(user, business_ids: list[int]) -> set[int]:
     )
 
 
-def favorited_branches_for_user(user, *, location=None):
-    """Return one representative branch per business the user has favorited.
+def user_liked_branch_ids(user, branch_ids: list[int]) -> set[int]:
+    if not user or not user.is_authenticated or not branch_ids:
+        return set()
+    return set(
+        BranchLike.objects.filter(user=user, branch_id__in=branch_ids).values_list(
+            "branch_id", flat=True
+        )
+    )
 
-    Prefers the nearest branch when [location] is provided; otherwise the
-    branch with the highest active discount. Order follows most-recent like.
+
+def favorited_branches_for_user(user, *, location=None):
+    """Return branches the user has favorited, newest like first.
+
+    [location] is unused for selection (each liked branch is kept) but kept
+    for call-site compatibility; distance sorting happens in serializers.
     """
-    from .location_utils import branch_distance_km
-    from .models import Branch
+    del location  # distance is attached by MapBranchSerializer when present
     from .offer_utils import branch_highlight_queryset
 
-    liked_business_ids = list(
-        BusinessLike.objects.filter(user=user)
+    liked_branch_ids = list(
+        BranchLike.objects.filter(user=user)
         .order_by("-created_at")
-        .values_list("business_id", flat=True)
+        .values_list("branch_id", flat=True)
     )
-    if not liked_business_ids:
+    if not liked_branch_ids:
         return []
 
     branches = list(
-        branch_highlight_queryset(
-            Branch.objects.filter(business_id__in=liked_business_ids)
-        )
+        branch_highlight_queryset(Branch.objects.filter(id__in=liked_branch_ids))
     )
-    if not branches:
-        return []
-
-    best_by_business: dict[int, object] = {}
-    for branch in branches:
-        business_id = branch.business_id
-        current = best_by_business.get(business_id)
-        if current is None:
-            best_by_business[business_id] = branch
-            continue
-
-        if location is not None:
-            if branch_distance_km(branch, location) < branch_distance_km(
-                current, location
-            ):
-                best_by_business[business_id] = branch
-            continue
-
-        current_discount = getattr(current, "highest_discount_percent", None) or 0
-        branch_discount = getattr(branch, "highest_discount_percent", None) or 0
-        if branch_discount > current_discount:
-            best_by_business[business_id] = branch
-
-    return [
-        best_by_business[business_id]
-        for business_id in liked_business_ids
-        if business_id in best_by_business
-    ]
+    by_id = {branch.id: branch for branch in branches}
+    return [by_id[branch_id] for branch_id in liked_branch_ids if branch_id in by_id]
 
 
 def pick_featured_offers_one_per_business(offers: list[Offer]) -> list[Offer]:
