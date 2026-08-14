@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>For Arooj</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💌</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Fredoka:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css?v=13" />
+  </head>
+  <body class="is-cartoon">
+    <div class="grain" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="light-leak" aria-hidden="true"></div>
+    <canvas id="dust" class="dust" aria-hidden="true"></canvas>
+    <div class="letterbox top" aria-hidden="true">
+      <span id="reel" class="reel">For Arooj</span>
+    </div>
+    <div class="letterbox bottom">
+      <div id="progress" class="progress"></div>
+      <div id="chapters" class="chapters"></div>
+    </div>
+
+    <div id="curtain" class="curtain" hidden>
+      <div class="orb" aria-hidden="true"></div>
+      <p class="curtain-kicker">A letter, in the shape of a film</p>
+      <h1 class="curtain-title">Arooj</h1>
+      <div class="gold-line"></div>
+      <p class="curtain-sub">from your husband</p>
+      <button type="button" id="begin" class="begin">Open this letter</button>
+    </div>
+
+    <div id="quiz" class="quiz">
+      <div class="quiz-card">
+        <div class="quiz-hero-wrap">
+          <img class="quiz-hero" src="assets/cartoon-husband.png" alt="A very serious security guard (your husband)" />
+        </div>
+        <div class="bubble">
+          <p class="bubble-kicker">WAIT WAIT WAIT</p>
+          <h2>Who is the love of Abdullah’s life?</h2>
+        </div>
+        <div class="choices">
+          <button type="button" class="choice" data-ok="false" data-msg="He thought about it for 0.3 seconds. Then he remembered who cooks it.">
+            <span class="choice-emoji">🍛</span>
+            <span>Biryani. Extra raita.</span>
+          </button>
+          <button type="button" class="choice" data-ok="false" data-msg="Beep boop. Phone says: she is my queen, I am just a rectangle.">
+            <span class="choice-emoji">📱</span>
+            <span>His phone</span>
+          </button>
+          <button type="button" class="choice" data-ok="true" data-msg="YAY! It’s you. It was always you.">
+            <span class="choice-emoji">👑</span>
+            <span>Arooj. Obviously.</span>
+          </button>
+        </div>
+        <p id="quiz-react" class="quiz-react" hidden></p>
+      </div>
+      <img id="quiz-stamp" class="quiz-stamp" alt="" hidden />
+    </div>
+
+    <div id="countdown" class="countdown" hidden></div>
+
+    <main id="film" class="film" hidden>
+      <section class="scene scene-text" data-reel="Prologue">
+        <p class="eyebrow">Scene I</p>
+        <h2>I didn’t wait for a special day.</h2>
+        <p class="whisper">The calendar didn’t ask me to do this.</p>
+      </section>
+
+      <section class="scene scene-text" data-reel="Prologue">
+        <p class="eyebrow">Scene II</p>
+        <h2>I made one.</h2>
+        <p class="whisper">Because you make ordinary days feel like they belong to us.</p>
+      </section>
+
+      <div id="moments"></div>
+
+      <section class="scene scene-stills" id="stills-scene" hidden>
+        <p class="eyebrow">Still frames</p>
+        <h2>A life I love.</h2>
+        <div id="stills" class="stills"></div>
+      </section>
+
+      <section class="scene scene-reasons" data-reel="Because">
+        <p class="eyebrow">Scene III</p>
+        <h2>Because.</h2>
+        <ul class="reasons">
+          <li>Because the room changes when you walk into it.</li>
+          <li>Because home isn’t a place until you’re in it.</li>
+          <li>Because I still look for you, even when I already know where you are.</li>
+          <li>Because loving you is the easiest true thing I know.</li>
+          <li>Because of the way you exist — fully, quietly, completely you.</li>
+          <li>Because the best days of my life have your face in them.</li>
+          <li>Because I chose you. And I keep choosing you.</li>
+        </ul>
+      </section>
+
+      <section class="scene scene-letter" data-reel="A letter">
+        <p class="eyebrow">A letter</p>
+        <article class="letter">
+          <p class="letter-open">Arooj,</p>
+          <p>
+            I don’t have a reason, and that is the point. Not an anniversary. Not a birthday.
+            Not a day anyone told me to remember you.
+          </p>
+          <p>
+            Just a day I looked at my life and thought — she should know.
+            You should feel, for a few minutes, how large you are in it.
+          </p>
+          <p>
+            You are the quiet I come home to. The person who turns ordinary rooms
+            into something that belongs to us. I don’t say it enough. I wanted you
+            to have something you could open, and keep, and feel.
+          </p>
+          <p>
+            I think of the day we met before the ceremony — just us, talking,
+            trying to understand the life we were about to begin. Then our Nikah:
+            white, gold, your hand in mine. Barat — you in red, a new chapter
+            opening. And Walima, when the celebration finally had a room of its own.
+            Then the mountains — our honeymoon, the best time of our life.
+            Just us, and a sky big enough to hold it. And our first Eid together —
+            a blessing that finally had your face beside mine.
+          </p>
+          <p>
+            Of all the lives I could have had, this is the one I want —
+            the one with you in it.
+          </p>
+          <p class="sign-off">I love you.</p>
+          <p class="signature">Always,<br />Abdullah</p>
+        </article>
+      </section>
+
+      <section class="scene scene-finale" data-reel="The last frame">
+        <div class="finale-glow" aria-hidden="true"></div>
+        <p class="eyebrow">The last frame</p>
+        <h2 class="finale-name">Arooj</h2>
+        <div class="gold-line finale-line-draw"></div>
+        <p class="finale-line">I love you.</p>
+        <p class="finale-heart" aria-hidden="true">♥</p>
+        <p class="finale-note">Not because the day is special.<br />Because you are.</p>
+      </section>
+    </main>
+
+    <p id="scroll-hint" class="scroll-hint" hidden>Scroll</p>
+    <button type="button" id="prev" class="nav-btn prev" hidden aria-label="Previous scene">‹</button>
+    <button type="button" id="next" class="nav-btn next" hidden aria-label="Next scene">›</button>
+    <button type="button" id="mute" class="mute" hidden aria-label="Mute music">♪</button>
+
+    <div id="lightbox" class="lightbox" hidden>
+      <img id="lightbox-img" alt="" />
+      <p id="lightbox-cap" class="lightbox-cap"></p>
+    </div>
+
+    <audio id="score" loop preload="auto">
+      <source src="assets/music.mp3" type="audio/mpeg" />
+    </audio>
+
+    <script src="js/main.js?v=12"></script>
+  </body>
+</html>
