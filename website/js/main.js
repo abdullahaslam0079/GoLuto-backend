@@ -14,6 +14,9 @@ const copy = {
     playTop: "Jetzt bei",
     ctaStory: "Was GoLuto ist",
     ctaMail: "hello@goluto.de",
+    chip1: "In der Nähe",
+    chip2: "Online",
+    chip3: "Ein Scan",
     aboutEyebrow: "Die Idee",
     aboutTitle: "Angebote dort, wo du gerade bist.",
     about1:
@@ -22,6 +25,12 @@ const copy = {
       "Die Karte zeigt dir, wo der Rabatt wirklich liegt. Die Stores-Ansicht ist der Schaufensterbummel. Zuhause oder unterwegs: ein Scan an der Kasse, und das Angebot ist eingelöst. So einfach soll Sparen sein.",
     about3:
       "Für Händler ist GoLuto die andere Seite derselben Sache: Filiale anlegen, Angebot live stellen, QR an die Tür. Kunden finden euch, ohne dass ihr Flyer drucken müsst.",
+    step1t: "Sehen",
+    step1: "Deal auf der Karte oder im Feed. Kein Flyer, kein Rätsel.",
+    step2t: "Gehen",
+    step2: "Zum Laden um die Ecke — oder online, wenn’s passt.",
+    step3t: "Einlösen",
+    step3: "QR an der Kasse scannen. Das Angebot ist deins.",
     appEyebrow: "So sieht’s aus",
     appTitle: "Drei Blickwinkel. Eine App.",
     cap1t: "Home",
@@ -60,6 +69,9 @@ const copy = {
     playTop: "Get it on",
     ctaStory: "What GoLuto is",
     ctaMail: "hello@goluto.de",
+    chip1: "Nearby",
+    chip2: "Online",
+    chip3: "One scan",
     aboutEyebrow: "The idea",
     aboutTitle: "Deals where you actually are.",
     about1:
@@ -68,6 +80,12 @@ const copy = {
       "The map shows where the discount really is. Stores is a window-shopping feed. At home or out: one scan at the till, and the offer is yours. Saving should feel that simple.",
     about3:
       "For merchants, GoLuto is the other half of the same idea: add a branch, publish a deal, QR on the door. Customers find you without a stack of flyers.",
+    step1t: "See",
+    step1: "The deal on the map or in the feed. No flyer, no puzzle.",
+    step2t: "Go",
+    step2: "To the shop around the corner — or online, if that fits.",
+    step3t: "Redeem",
+    step3: "Scan the QR at the till. The offer is yours.",
     appEyebrow: "How it looks",
     appTitle: "Three views. One app.",
     cap1t: "Home",
@@ -124,17 +142,21 @@ document.querySelectorAll(".nav-panel a").forEach((link) => {
 });
 
 const bar = document.querySelector(".progress");
+const nav = document.querySelector(".nav");
 
 function onScroll() {
-  if (!bar) return;
-  const max = document.documentElement.scrollHeight - window.innerHeight;
-  bar.style.width = `${max > 0 ? (window.scrollY / max) * 100 : 0}%`;
+  if (bar) {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.width = `${max > 0 ? (window.scrollY / max) * 100 : 0}%`;
+  }
+  nav?.classList.toggle("scrolled", window.scrollY > 16);
 }
 
 window.addEventListener("scroll", onScroll, { passive: true });
 onScroll();
 
 const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 if (!reduce) {
   const io = new IntersectionObserver(
     (entries) => {
@@ -145,22 +167,91 @@ if (!reduce) {
         }
       });
     },
-    { threshold: 0.15 },
+    { threshold: 0.16, rootMargin: "0px 0px -8% 0px" },
   );
-  document.querySelectorAll(".rise").forEach((el) => io.observe(el));
+  document.querySelectorAll(".rise").forEach((el, i) => {
+    el.style.setProperty("--d", `${(i % 4) * 90}ms`);
+    io.observe(el);
+  });
 
+  const hero = document.querySelector(".hero");
+  const spot = document.getElementById("spot");
   const stack = document.querySelector(".stack");
+  const floats = stack ? [...stack.querySelectorAll(".float")] : [];
+
+  let sx = window.innerWidth * 0.7;
+  let sy = 180;
+  let spx = sx;
+  let spy = sy;
+  let tx = 0;
+  let ty = 0;
+  let cx = 0;
+  let cy = 0;
+
+  hero?.addEventListener("pointermove", (event) => {
+    const r = hero.getBoundingClientRect();
+    sx = event.clientX - r.left;
+    sy = event.clientY - r.top;
+  });
+
   if (stack) {
     stack.addEventListener("pointermove", (event) => {
       const r = stack.getBoundingClientRect();
-      const x = (event.clientX - r.left) / r.width - 0.5;
-      const y = (event.clientY - r.top) / r.height - 0.5;
-      stack.querySelectorAll(".device").forEach((shot, i) => {
-        const d = (i + 1) * 8;
-        shot.style.translate = `${x * d}px ${y * d - 0}px`;
-      });
+      tx = (event.clientX - r.left) / r.width - 0.5;
+      ty = (event.clientY - r.top) / r.height - 0.5;
+    });
+    stack.addEventListener("pointerleave", () => {
+      tx = 0;
+      ty = 0;
     });
   }
+
+  function tick() {
+    spx += (sx - spx) * 0.1;
+    spy += (sy - spy) * 0.1;
+    cx += (tx - cx) * 0.08;
+    cy += (ty - cy) * 0.08;
+
+    if (spot) spot.style.transform = `translate3d(${spx}px, ${spy}px, 0)`;
+
+    floats.forEach((el, i) => {
+      const device = el.querySelector(".device");
+      if (!device) return;
+      const d = (i + 1) * 18;
+      device.style.transform = `translate3d(${cx * d}px, ${cy * d}px, 0) rotateX(${-cy * 10}deg) rotateY(${cx * 14}deg)`;
+    });
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  document.querySelectorAll(".tilt").forEach((card) => {
+    const device = card.querySelector(".device");
+    if (!device) return;
+    card.addEventListener("pointermove", (event) => {
+      const r = card.getBoundingClientRect();
+      const x = (event.clientX - r.left) / r.width - 0.5;
+      const y = (event.clientY - r.top) / r.height - 0.5;
+      device.style.transform = `translateY(-10px) rotateX(${-y * 12}deg) rotateY(${x * 14}deg)`;
+    });
+    card.addEventListener("pointerleave", () => {
+      device.style.transform = "";
+    });
+  });
+
+  document.querySelectorAll("[data-magnetic]").forEach((el) => {
+    el.addEventListener("pointermove", (event) => {
+      const r = el.getBoundingClientRect();
+      const x = event.clientX - (r.left + r.width / 2);
+      const y = event.clientY - (r.top + r.height / 2);
+      el.style.transform = `translate(${x * 0.22}px, ${y * 0.22}px)`;
+    });
+    el.addEventListener("pointerleave", () => {
+      el.style.transform = "";
+    });
+  });
+} else {
+  document.querySelectorAll(".rise").forEach((el) => el.classList.add("in"));
 }
 
 applyLang(localStorage.getItem("goluto-lang") || "de");
