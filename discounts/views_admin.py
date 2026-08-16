@@ -1,8 +1,8 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Q, Sum
-from django.db.models.functions import TruncDate
+from django.db.models import Count, Q, Sum, TextField
+from django.db.models.functions import Cast, TruncDate
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -489,9 +489,13 @@ class AdminOfferListCreateAPIView(APIView):
         qs = self.get_queryset()
         search = (request.query_params.get("search") or "").strip()
         if search:
-            qs = qs.filter(
+            qs = qs.annotate(
+                included_items_text=Cast("included_items", TextField())
+            ).filter(
                 Q(title__icontains=search)
                 | Q(description__icontains=search)
+                | Q(item_name__icontains=search)
+                | Q(included_items_text__icontains=search)
                 | Q(business__name__icontains=search)
             )
         business_id = request.query_params.get("business_id")

@@ -550,6 +550,33 @@ collection = {
                     auth_bearer="{{business_token}}",
                 ),
                 req(
+                    "Create Offer (deal)",
+                    "POST",
+                    "api/business/offers",
+                    body={
+                        "offer_type": "deal",
+                        "title": "Zinger Box",
+                        "included_items": [
+                            "Zinger burger",
+                            "Regular fries",
+                            "Soft drink",
+                        ],
+                        "original_price": "14.00",
+                        "discounted_price": "8.99",
+                        "usage_limit_type": "once_per_week",
+                        "usage_limit_count": 1,
+                        "branch_ids": [1],
+                        "is_online": False,
+                        "is_enabled": True,
+                    },
+                    auth_bearer="{{business_token}}",
+                    description=(
+                        "Deal/bundle offer: included_items (at least two names) plus "
+                        "original and deal prices. Empty external_url_label defaults "
+                        "to View Deal."
+                    ),
+                ),
+                req(
                     "Create Offer (online only)",
                     "POST",
                     "api/business/offers",

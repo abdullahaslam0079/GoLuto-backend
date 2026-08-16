@@ -23,7 +23,10 @@ class OfferPaymentPreview:
         if self.amount_to_pay is None:
             return None
         amount = f"€{self.amount_to_pay:.2f}"
-        if self.offer_type == Offer.OfferType.ITEM and self.item_name:
+        if (
+            self.offer_type in {Offer.OfferType.ITEM, Offer.OfferType.DEAL}
+            and self.item_name
+        ):
             return f"Pay {amount} at the counter for {self.item_name}"
         if self.offer_type == Offer.OfferType.PERCENTAGE_BILL and self.original_amount is not None:
             return (
@@ -53,13 +56,14 @@ def _quantize_money(value: Decimal) -> Decimal:
 def compute_offer_payment(
     offer: Offer, *, bill_amount: Decimal | None = None
 ) -> OfferPaymentPreview:
-    if offer.offer_type == Offer.OfferType.ITEM:
+    if offer.offer_type in {Offer.OfferType.ITEM, Offer.OfferType.DEAL}:
         original = Decimal(str(offer.original_price))
         discounted = Decimal(str(offer.discounted_price))
+        label = offer.item_name or offer.title
         return OfferPaymentPreview(
             offer_type=offer.offer_type,
             discount_percent=offer.discount_percent,
-            item_name=offer.item_name,
+            item_name=label,
             original_amount=original,
             discount_amount=_quantize_money(original - discounted),
             amount_to_pay=discounted,

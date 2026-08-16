@@ -537,6 +537,23 @@ class OfferPaymentTests(TestCase):
         self.assertIn("€7.00", payment.summary)
         self.assertIn("Classic Burger", payment.summary)
 
+    def test_deal_offer_payment_is_fixed_deal_price(self):
+        deal = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.DEAL,
+            title="Zinger Box",
+            included_items=["Zinger burger", "Regular fries", "Soft drink"],
+            original_price=Decimal("14.00"),
+            discounted_price=Decimal("8.99"),
+            discount_percent=Decimal("35.79"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+        )
+        payment = compute_offer_payment(deal)
+        self.assertEqual(payment.amount_to_pay, Decimal("8.99"))
+        self.assertEqual(payment.original_amount, Decimal("14.00"))
+        self.assertFalse(payment.requires_bill_amount)
+        self.assertIn("Zinger Box", payment.summary)
+
 
 class OfferPaymentAPITests(APITestCase):
     def setUp(self):
@@ -1010,6 +1027,149 @@ class OnlineOfferAPITests(APITestCase):
         self.assertFalse(by_title["In Store Deal"]["is_online"])
         self.assertIsNone(by_title["Online Only Deal"]["nearest_distance_km"])
         self.assertEqual(online_offer.branches.count(), 0)
+
+
+class OfferDealAPITests(APITestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner@example.com",
+            password="testpass123",
+            account_type=User.AccountType.BUSINESS,
+        )
+        self.admin = User.objects.create_user(
+            email="admin@example.com",
+            password="testpass123",
+            account_type=User.AccountType.CONSUMER,
+            is_staff=True,
+        )
+        self.category = Category.objects.create(name="Food")
+        self.business = Business.objects.create(
+            owner=self.owner,
+            name="KFC Test",
+            category=self.category,
+        )
+        self.branch = Branch.objects.create(
+            business=self.business,
+            name="Main Branch",
+            street="Main",
+            house_number="1",
+            postal_code="10001",
+            city="Berlin",
+            latitude=Decimal("52.520008"),
+            longitude=Decimal("13.404954"),
+        )
+
+    def test_admin_create_deal_offer(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            "/api/admin/offers",
+            {
+                "business_id": self.business.id,
+                "offer_type": "deal",
+                "title": "Zinger Box",
+                "included_items": ["Zinger burger", "Regular fries", "Soft drink"],
+                "original_price": "14.00",
+                "discounted_price": "8.99",
+                "usage_limit_type": "one_time",
+                "branch_ids": [self.branch.id],
+                "is_enabled": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["offer_type"], "deal")
+        self.assertEqual(
+            response.data["included_items"],
+            ["Zinger burger", "Regular fries", "Soft drink"],
+        )
+        self.assertEqual(response.data["external_url_label"], "View Deal")
+        self.assertEqual(response.data["discounted_price"], "8.99")
+        offer = Offer.objects.get(pk=response.data["id"])
+        self.assertEqual(offer.offer_type, Offer.OfferType.DEAL)
+        self.assertEqual(offer.included_items, ["Zinger burger", "Regular fries", "Soft drink"])
+
+    def test_deal_requires_at_least_two_items(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            "/api/admin/offers",
+            {
+                "business_id": self.business.id,
+                "offer_type": "deal",
+                "title": "Incomplete Box",
+                "included_items": ["Zinger burger"],
+                "original_price": "10.00",
+                "discounted_price": "7.00",
+                "usage_limit_type": "one_time",
+                "branch_ids": [self.branch.id],
+                "is_enabled": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        errors = response.data.get("errors", response.data)
+        self.assertIn("included_items", errors)
+
+    def test_item_offer_defaults_view_offer_label(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            "/api/admin/offers",
+            {
+                "business_id": self.business.id,
+                "offer_type": "item",
+                "title": "Classic Burger",
+                "item_name": "Classic Burger",
+                "original_price": "12.00",
+                "discounted_price": "8.00",
+                "usage_limit_type": "one_time",
+                "branch_ids": [self.branch.id],
+                "is_enabled": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["external_url_label"], "View Offer")
+
+    def test_custom_external_url_label_is_kept(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            "/api/admin/offers",
+            {
+                "business_id": self.business.id,
+                "offer_type": "deal",
+                "title": "Family Bucket",
+                "included_items": ["8 pieces", "Large fries", "2 drinks"],
+                "original_price": "30.00",
+                "discounted_price": "22.00",
+                "usage_limit_type": "one_time",
+                "branch_ids": [self.branch.id],
+                "external_url_label": "Order now",
+                "is_enabled": True,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["external_url_label"], "Order now")
+
+    def test_search_finds_deal_by_included_item(self):
+        deal = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.DEAL,
+            title="Zinger Box",
+            included_items=["Zinger burger", "Regular fries", "Soft drink"],
+            original_price=Decimal("14.00"),
+            discounted_price=Decimal("8.99"),
+            discount_percent=Decimal("35.79"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+            is_enabled=True,
+        )
+        deal.branches.set([self.branch])
+        response = self.client.get("/api/offers/search", {"q": "Zinger burger"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = [offer["title"] for offer in response.data["results"]]
+        self.assertIn("Zinger Box", titles)
+        found = next(offer for offer in response.data["results"] if offer["title"] == "Zinger Box")
+        self.assertEqual(found["offer_type"], "deal")
+        self.assertEqual(found["included_items"][0], "Zinger burger")
 
 
 class PhoneAuthAPITests(APITestCase):

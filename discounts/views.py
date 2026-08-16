@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Q
+from django.db.models import Q, TextField
+from django.db.models.functions import Cast
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -170,9 +171,12 @@ class OfferSearchAPIView(UserLocationContextMixin, APIView):
             .prefetch_related("branches", "gallery_images")
         )
         queryset = filter_active_offers(queryset)
-        queryset = queryset.filter(
+        queryset = queryset.annotate(
+            included_items_text=Cast("included_items", TextField())
+        ).filter(
             Q(title__icontains=q)
             | Q(item_name__icontains=q)
+            | Q(included_items_text__icontains=q)
             | Q(description__icontains=q)
             | Q(detailed_description__icontains=q)
             | Q(business__name__icontains=q)

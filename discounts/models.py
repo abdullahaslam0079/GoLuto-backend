@@ -114,6 +114,10 @@ class Offer(models.Model):
     class OfferType(models.TextChoices):
         PERCENTAGE_BILL = "percentage_bill", "Percentage off entire bill"
         ITEM = "item", "Item or service discount"
+        DEAL = "deal", "Deal or bundle"
+
+    DEFAULT_EXTERNAL_URL_LABEL = "View Offer"
+    DEFAULT_DEAL_EXTERNAL_URL_LABEL = "View Deal"
 
     class RedemptionMode(models.TextChoices):
         SCANNABLE = "scannable", "Scannable"
@@ -149,6 +153,11 @@ class Offer(models.Model):
     image = models.ImageField(upload_to="offer_images/", null=True, blank=True)
     discount_percent = models.DecimalField(max_digits=5, decimal_places=2)
     item_name = models.CharField(max_length=120, blank=True)
+    included_items = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Included item names for deal/bundle offers.",
+    )
     original_price = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )
@@ -175,6 +184,30 @@ class Offer(models.Model):
             return Decimal("0.00")
         percent = (original_price - discounted_price) / original_price * Decimal("100")
         return percent.quantize(Decimal("0.01"))
+
+    @classmethod
+    def default_external_url_label(cls, offer_type: str) -> str:
+        if offer_type == cls.OfferType.DEAL:
+            return cls.DEFAULT_DEAL_EXTERNAL_URL_LABEL
+        return cls.DEFAULT_EXTERNAL_URL_LABEL
+
+    @staticmethod
+    def normalize_included_items(value) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            value = [part.strip() for part in value.replace(",", "\n").splitlines()]
+        if not isinstance(value, list):
+            return []
+        items: list[str] = []
+        seen: set[str] = set()
+        for raw in value:
+            item = str(raw or "").strip()
+            if not item or item in seen:
+                continue
+            seen.add(item)
+            items.append(item)
+        return items
 
     @property
     def is_active(self) -> bool:

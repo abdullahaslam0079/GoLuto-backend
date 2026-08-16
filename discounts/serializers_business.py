@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -298,6 +299,11 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
         ),
     )
     image_urls = serializers.SerializerMethodField()
+    included_items = serializers.ListField(
+        child=serializers.CharField(max_length=120, allow_blank=False, trim_whitespace=True),
+        required=False,
+        allow_empty=True,
+    )
 
     class Meta:
         model = Offer
@@ -315,6 +321,7 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             "image_urls",
             "discount_percent",
             "item_name",
+            "included_items",
             "original_price",
             "discounted_price",
             "usage_limit_type",
@@ -393,11 +400,38 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
                             item for item in raw_urls if item not in empty_values
                         ]
 
+            if "included_items" in payload:
+                payload["included_items"] = self._parse_included_items_payload(
+                    payload.get("included_items"),
+                    empty_values=empty_values,
+                    getlist=getattr(data, "getlist", None),
+                )
+
             return super().run_validation(payload)
         return super().run_validation(data)
 
     def get_image_urls(self, obj: Offer) -> list[str]:
         return build_offer_image_urls(obj, self.context.get("request"))
+
+    @staticmethod
+    def _parse_included_items_payload(raw, *, empty_values, getlist=None):
+        if getlist is not None and raw not in (None,):
+            listed = [item for item in getlist("included_items") if item not in empty_values]
+            if listed:
+                raw = listed
+        if raw in empty_values:
+            return []
+        if isinstance(raw, str):
+            stripped = raw.strip()
+            if stripped.startswith("["):
+                try:
+                    parsed = json.loads(stripped)
+                    if isinstance(parsed, list):
+                        return Offer.normalize_included_items(parsed)
+                except json.JSONDecodeError:
+                    pass
+            return Offer.normalize_included_items(stripped)
+        return Offer.normalize_included_items(raw)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -439,6 +473,48 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
                 {"branch_ids": "One or more branches do not belong to your business."}
             )
 
+    def _priced_offer_fields(self, attrs):
+        original = attrs.get(
+            "original_price", getattr(self.instance, "original_price", None)
+        )
+        discounted = attrs.get(
+            "discounted_price", getattr(self.instance, "discounted_price", None)
+        )
+        if original is None:
+            raise serializers.ValidationError(
+                {"original_price": "Original price is required."}
+            )
+        if discounted is None:
+            raise serializers.ValidationError(
+                {"discounted_price": "Discounted price is required."}
+            )
+        if original <= 0:
+            raise serializers.ValidationError(
+                {"original_price": "Original price must be greater than zero."}
+            )
+        if discounted < 0:
+            raise serializers.ValidationError(
+                {"discounted_price": "Discounted price cannot be negative."}
+            )
+        if discounted >= original:
+            raise serializers.ValidationError(
+                {"discounted_price": "Discounted price must be less than original price."}
+            )
+        attrs["original_price"] = original
+        attrs["discounted_price"] = discounted
+        attrs["discount_percent"] = Offer.compute_discount_percent(
+            Decimal(str(original)), Decimal(str(discounted))
+        )
+
+    def _apply_default_external_url_label(self, attrs, offer_type: str):
+        label = attrs.get("external_url_label")
+        if label is None and self.instance is not None:
+            label = self.instance.external_url_label
+        cleaned = (label or "").strip()
+        attrs["external_url_label"] = cleaned or Offer.default_external_url_label(
+            offer_type
+        )
+
     def _validate_offer_type_fields(self, attrs):
         offer_type = attrs.get(
             "offer_type", getattr(self.instance, "offer_type", None)
@@ -458,46 +534,39 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
                     {"discount_percent": "Discount must be between 0.01 and 100."}
                 )
             attrs["item_name"] = ""
+            attrs["included_items"] = []
             attrs["original_price"] = None
             attrs["discounted_price"] = None
         elif offer_type == Offer.OfferType.ITEM:
             item_name = attrs.get(
                 "item_name", getattr(self.instance, "item_name", "")
             )
-            original = attrs.get(
-                "original_price", getattr(self.instance, "original_price", None)
-            )
-            discounted = attrs.get(
-                "discounted_price", getattr(self.instance, "discounted_price", None)
-            )
             if not item_name or not item_name.strip():
                 raise serializers.ValidationError(
                     {"item_name": "Item or service name is required."}
                 )
-            if original is None:
-                raise serializers.ValidationError(
-                    {"original_price": "Original price is required."}
-                )
-            if discounted is None:
-                raise serializers.ValidationError(
-                    {"discounted_price": "Discounted price is required."}
-                )
-            if original <= 0:
-                raise serializers.ValidationError(
-                    {"original_price": "Original price must be greater than zero."}
-                )
-            if discounted < 0:
-                raise serializers.ValidationError(
-                    {"discounted_price": "Discounted price cannot be negative."}
-                )
-            if discounted >= original:
-                raise serializers.ValidationError(
-                    {"discounted_price": "Discounted price must be less than original price."}
-                )
-            attrs["discount_percent"] = Offer.compute_discount_percent(
-                Decimal(str(original)), Decimal(str(discounted))
-            )
+            self._priced_offer_fields(attrs)
             attrs["item_name"] = item_name.strip()
+            attrs["included_items"] = []
+        elif offer_type == Offer.OfferType.DEAL:
+            included_items = attrs.get("included_items", serializers.empty)
+            if included_items is serializers.empty and self.instance is not None:
+                included_items = self.instance.included_items
+            items = Offer.normalize_included_items(included_items)
+            if len(items) < 2:
+                raise serializers.ValidationError(
+                    {
+                        "included_items": (
+                            "Add at least two included items for a deal."
+                        )
+                    }
+                )
+            self._priced_offer_fields(attrs)
+            attrs["included_items"] = items
+            attrs["item_name"] = ""
+
+        if offer_type:
+            self._apply_default_external_url_label(attrs, offer_type)
 
     def _validate_usage_limits(self, attrs):
         limit_type = attrs.get(
