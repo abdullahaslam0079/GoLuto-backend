@@ -12,6 +12,7 @@ from .views import (
     DiscountsFeedAPIView,
     MapBranchesAPIView,
     MapBusinessesAPIView,
+    MapNearbyBranchesAPIView,
     NotificationListAPIView,
     NotificationMarkAllReadAPIView,
     NotificationMarkReadAPIView,
@@ -68,6 +69,7 @@ urlpatterns = [
     path("offers/search", OfferSearchAPIView.as_view(), name="offers-search"),
     path("offers/discounts", DiscountsFeedAPIView.as_view(), name="offers-discounts"),
     path("map/branches", MapBranchesAPIView.as_view(), name="map-branches"),
+    path("map/nearby", MapNearbyBranchesAPIView.as_view(), name="map-nearby"),
     path("map/businesses", MapBusinessesAPIView.as_view(), name="map-businesses"),
     path(
         "business/<int:business_id>/offers",

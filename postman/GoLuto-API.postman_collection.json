@@ -622,7 +622,53 @@
                 }
               ]
             },
-            "description": ""
+            "description": "Stores tab: city-scoped nearby branches."
+          }
+        },
+        {
+          "name": "Map Nearby",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/map/nearby",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "map",
+                "nearby"
+              ],
+              "query": [
+                {
+                  "key": "latitude",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "longitude",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "radius_km",
+                  "value": "4",
+                  "disabled": false
+                },
+                {
+                  "key": "address_id",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "category_id",
+                  "value": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Discover map: branches within radius_km of lat/lng or the saved address. Does not change saved addresses."
           }
         },
         {

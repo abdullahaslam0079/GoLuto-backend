@@ -10,7 +10,10 @@ from rest_framework.views import APIView
 from .address_utils import get_user_address, promote_next_default_address
 from .location_utils import (
     filter_branches_for_location,
+    filter_branches_within_radius,
     filter_offers_for_location,
+    parse_map_radius_km,
+    resolve_map_search_center,
     resolve_user_location,
     sort_offers_by_nearest_distance,
 )
@@ -257,6 +260,58 @@ class MapBusinessesAPIView(MapBranchesAPIView):
     """Backward-compatible alias: map pins are branch locations."""
 
     pass
+
+
+class MapNearbyBranchesAPIView(UserLocationContextMixin, generics.ListAPIView):
+    """
+    Discover-tab pins: branches within radius_km of a map center.
+
+    Center is explicit latitude/longitude (Search this area) or the user's
+    selected/default address. Does not mutate saved addresses.
+    """
+
+    serializer_class = MapBranchSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_user_location(self):
+        if not hasattr(self, "_user_location"):
+            self._user_location = resolve_map_search_center(self.request)
+        return self._user_location
+
+    def get_queryset(self):
+        now = timezone.now()
+        queryset = branch_highlight_queryset(Branch.objects.all(), now)
+        queryset = queryset.filter(highest_discount_percent__isnull=False)
+
+        category_id = self.request.query_params.get("category_id")
+        if category_id:
+            queryset = queryset.filter(business__category_id=category_id)
+
+        location = self.get_user_location()
+        if location is None:
+            return queryset.none()
+
+        return filter_branches_within_radius(
+            queryset,
+            location,
+            parse_map_radius_km(self.request),
+        )
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page, page_size = parse_page_params(request, default_page_size=50)
+        total, items = slice_queryset(queryset, page, page_size)
+        location = self.get_user_location()
+        serializer = self.get_serializer(items, many=True)
+        return Response(
+            page_payload(
+                count=total,
+                page=page,
+                page_size=page_size,
+                results=serializer.data,
+                radius_km=parse_map_radius_km(request) if location else None,
+            )
+        )
 
 
 class BusinessOffersAPIView(UserOfferUsageContextMixin, generics.ListAPIView):

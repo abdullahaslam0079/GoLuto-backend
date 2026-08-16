@@ -482,6 +482,55 @@ class LocationFilteringAPITests(APITestCase):
         self.assertIn("Suburban Deal", titles)
         self.assertNotIn("Munich Deal", titles)
 
+    def _nearby_names(self, response):
+        return [branch["name"] for branch in response.data["results"]]
+
+    def test_map_nearby_defaults_to_four_km_radius(self):
+        self.client.force_authenticate(user=self.consumer)
+        response = self.client.get("/api/map/nearby")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = self._nearby_names(response)
+        self.assertIn("Berlin Near", names)
+        self.assertNotIn("Berlin Far", names)
+        self.assertNotIn("Munich Branch", names)
+        self.assertEqual(response.data["radius_km"], 4.0)
+
+    def test_map_nearby_search_area_uses_explicit_center(self):
+        self.client.force_authenticate(user=self.consumer)
+        response = self.client.get(
+            "/api/map/nearby",
+            {
+                "latitude": "52.560008",
+                "longitude": "13.454954",
+                "radius_km": "4",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = self._nearby_names(response)
+        self.assertIn("Berlin Far", names)
+        self.assertNotIn("Berlin Near", names)
+        self.assertNotIn("Munich Branch", names)
+
+    def test_map_nearby_does_not_change_city_scoped_stores_feed(self):
+        self.client.force_authenticate(user=self.consumer)
+        nearby = self.client.get("/api/map/nearby")
+        stores = self.client.get("/api/map/branches")
+        self.assertNotIn("Berlin Far", self._nearby_names(nearby))
+        payload = stores.data
+        store_items = payload["results"] if isinstance(payload, dict) else payload
+        store_names = [branch["name"] for branch in store_items]
+        self.assertIn("Berlin Far", store_names)
+
+    def test_map_nearby_requires_both_coordinates(self):
+        self.client.force_authenticate(user=self.consumer)
+        response = self.client.get("/api/map/nearby", {"latitude": "52.52"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_map_nearby_anonymous_without_center_is_empty(self):
+        response = self.client.get("/api/map/nearby")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["results"], [])
+
 
 class OfferPaymentTests(TestCase):
     def setUp(self):

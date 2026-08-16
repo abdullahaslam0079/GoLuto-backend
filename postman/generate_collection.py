@@ -286,6 +286,20 @@ collection = {
                     "GET",
                     "api/map/branches",
                     query=[("category_id", "")],
+                    description="Stores tab: city-scoped nearby branches.",
+                ),
+                req(
+                    "Map Nearby",
+                    "GET",
+                    "api/map/nearby",
+                    query=[
+                        ("latitude", ""),
+                        ("longitude", ""),
+                        ("radius_km", "4"),
+                        ("address_id", ""),
+                        ("category_id", ""),
+                    ],
+                    description="Discover map: branches within radius_km of lat/lng or the saved address. Does not change saved addresses.",
                 ),
                 req(
                     "Map Businesses",

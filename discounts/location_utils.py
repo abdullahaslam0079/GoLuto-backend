@@ -5,7 +5,7 @@ from decimal import Decimal
 from math import asin, cos, radians, sin, sqrt
 
 from django.db.models import Case, IntegerField, QuerySet, When
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 
 from .address_utils import get_user_address
 from .models import Branch, Offer
@@ -13,6 +13,9 @@ from .models import Branch, Offer
 
 EARTH_RADIUS_KM = 6371.0
 FALLBACK_RADIUS_KM = 10.0
+DEFAULT_MAP_NEARBY_RADIUS_KM = 4.0
+MIN_MAP_NEARBY_RADIUS_KM = 0.5
+MAX_MAP_NEARBY_RADIUS_KM = 25.0
 
 
 @dataclass(frozen=True)
@@ -95,6 +98,50 @@ def resolve_user_location(request) -> UserLocation | None:
     )
 
 
+def resolve_map_search_center(request) -> UserLocation | None:
+    """
+    Map Discover search center. Explicit lat/lng wins so panning the map
+    can fetch a new area without changing the user's saved address.
+    Falls back to address_id / default address when coordinates are omitted.
+    """
+    params = request.query_params
+    lat = params.get("latitude")
+    lon = params.get("longitude")
+    if lat is not None or lon is not None:
+        if lat is None or lon is None:
+            raise ValidationError(
+                {"detail": "latitude and longitude are required together."}
+            )
+        try:
+            latitude = Decimal(str(lat))
+            longitude = Decimal(str(lon))
+        except Exception as exc:
+            raise ValidationError(
+                {"detail": "latitude and longitude must be valid numbers."}
+            ) from exc
+        if not -90 <= float(latitude) <= 90 or not -180 <= float(longitude) <= 180:
+            raise ValidationError(
+                {"detail": "latitude or longitude is out of range."}
+            )
+        return UserLocation(
+            latitude=latitude,
+            longitude=longitude,
+            city=str(params.get("city") or "").strip(),
+        )
+    return resolve_user_location(request)
+
+
+def parse_map_radius_km(request) -> float:
+    raw = request.query_params.get("radius_km")
+    if raw is None or str(raw).strip() == "":
+        return DEFAULT_MAP_NEARBY_RADIUS_KM
+    try:
+        value = float(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError({"detail": "radius_km must be a number."}) from exc
+    return min(max(value, MIN_MAP_NEARBY_RADIUS_KM), MAX_MAP_NEARBY_RADIUS_KM)
+
+
 def branches_in_city(branches: list[Branch], location: UserLocation) -> list[Branch]:
     return [
         branch
@@ -152,6 +199,16 @@ def filter_branches_for_location(
     branch_list = list(queryset)
     ordered_ids, mode = resolve_location_branch_scope(branch_list, location)
     return order_queryset_by_id_sequence(queryset, ordered_ids), mode
+
+
+def filter_branches_within_radius(
+    queryset: QuerySet, location: UserLocation, radius_km: float
+) -> QuerySet:
+    nearby = branches_within_radius(list(queryset), location, radius_km)
+    ordered = sort_branches_by_distance(nearby, location)
+    return order_queryset_by_id_sequence(
+        queryset, [branch.id for branch in ordered]
+    )
 
 
 def filter_offers_for_location(
