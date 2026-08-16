@@ -543,14 +543,13 @@ class OfferPaymentTests(TestCase):
             offer_type=Offer.OfferType.DEAL,
             title="Zinger Box",
             included_items=["Zinger burger", "Regular fries", "Soft drink"],
-            original_price=Decimal("14.00"),
             discounted_price=Decimal("8.99"),
-            discount_percent=Decimal("35.79"),
+            discount_percent=Decimal("0.00"),
             usage_limit_type=Offer.UsageLimitType.ONE_TIME,
         )
         payment = compute_offer_payment(deal)
         self.assertEqual(payment.amount_to_pay, Decimal("8.99"))
-        self.assertEqual(payment.original_amount, Decimal("14.00"))
+        self.assertIsNone(payment.original_amount)
         self.assertFalse(payment.requires_bill_amount)
         self.assertIn("Zinger Box", payment.summary)
 
@@ -1068,7 +1067,6 @@ class OfferDealAPITests(APITestCase):
                 "offer_type": "deal",
                 "title": "Zinger Box",
                 "included_items": ["Zinger burger", "Regular fries", "Soft drink"],
-                "original_price": "14.00",
                 "discounted_price": "8.99",
                 "usage_limit_type": "one_time",
                 "branch_ids": [self.branch.id],
@@ -1084,9 +1082,11 @@ class OfferDealAPITests(APITestCase):
         )
         self.assertEqual(response.data["external_url_label"], "View Deal")
         self.assertEqual(response.data["discounted_price"], "8.99")
+        self.assertIsNone(response.data["original_price"])
         offer = Offer.objects.get(pk=response.data["id"])
         self.assertEqual(offer.offer_type, Offer.OfferType.DEAL)
         self.assertEqual(offer.included_items, ["Zinger burger", "Regular fries", "Soft drink"])
+        self.assertIsNone(offer.original_price)
 
     def test_deal_requires_at_least_two_items(self):
         self.client.force_authenticate(user=self.admin)
@@ -1097,7 +1097,6 @@ class OfferDealAPITests(APITestCase):
                 "offer_type": "deal",
                 "title": "Incomplete Box",
                 "included_items": ["Zinger burger"],
-                "original_price": "10.00",
                 "discounted_price": "7.00",
                 "usage_limit_type": "one_time",
                 "branch_ids": [self.branch.id],
@@ -1138,7 +1137,6 @@ class OfferDealAPITests(APITestCase):
                 "offer_type": "deal",
                 "title": "Family Bucket",
                 "included_items": ["8 pieces", "Large fries", "2 drinks"],
-                "original_price": "30.00",
                 "discounted_price": "22.00",
                 "usage_limit_type": "one_time",
                 "branch_ids": [self.branch.id],
@@ -1156,9 +1154,8 @@ class OfferDealAPITests(APITestCase):
             offer_type=Offer.OfferType.DEAL,
             title="Zinger Box",
             included_items=["Zinger burger", "Regular fries", "Soft drink"],
-            original_price=Decimal("14.00"),
             discounted_price=Decimal("8.99"),
-            discount_percent=Decimal("35.79"),
+            discount_percent=Decimal("0.00"),
             usage_limit_type=Offer.UsageLimitType.ONE_TIME,
             is_enabled=True,
         )

@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "a0884cab-d54a-4261-b9fa-978ac608bfa7",
+    "_postman_id": "629228f9-b9eb-4f3b-baf1-89ed9de7b0d4",
     "name": "GoLuto API",
     "description": "Discount Discovery API \u2014 categories, offers, map, consumer & business accounts.\n\n**Quick start**\n1. Import `GoLuto-Production.postman_environment.json` (or Local).\n2. Select the environment in Postman.\n3. Run **Auth \u2192 Consumer Login** or **Business Login** to store JWT tokens.\n4. Call protected endpoints in the Consumer / Business folders.\n\n**Live docs:** https://goluto-backend.onrender.com/api/docs/\n**OpenAPI schema:** https://goluto-backend.onrender.com/api/schema/",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -1630,10 +1630,10 @@
                 "offers"
               ]
             },
-            "description": "Deal/bundle offer: included_items (at least two names) plus original and deal prices. Empty external_url_label defaults to View Deal.",
+            "description": "Deal/bundle offer: included_items (at least two names) plus a deal price. Empty external_url_label defaults to View Deal.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"offer_type\": \"deal\",\n  \"title\": \"Zinger Box\",\n  \"included_items\": [\n    \"Zinger burger\",\n    \"Regular fries\",\n    \"Soft drink\"\n  ],\n  \"original_price\": \"14.00\",\n  \"discounted_price\": \"8.99\",\n  \"usage_limit_type\": \"once_per_week\",\n  \"usage_limit_count\": 1,\n  \"branch_ids\": [\n    1\n  ],\n  \"is_online\": false,\n  \"is_enabled\": true\n}",
+              "raw": "{\n  \"offer_type\": \"deal\",\n  \"title\": \"Zinger Box\",\n  \"included_items\": [\n    \"Zinger burger\",\n    \"Regular fries\",\n    \"Soft drink\"\n  ],\n  \"discounted_price\": \"8.99\",\n  \"usage_limit_type\": \"once_per_week\",\n  \"usage_limit_count\": 1,\n  \"branch_ids\": [\n    1\n  ],\n  \"is_online\": false,\n  \"is_enabled\": true\n}",
               "options": {
                 "raw": {
                   "language": "json"

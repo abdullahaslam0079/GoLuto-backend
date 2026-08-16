@@ -561,7 +561,6 @@ collection = {
                             "Regular fries",
                             "Soft drink",
                         ],
-                        "original_price": "14.00",
                         "discounted_price": "8.99",
                         "usage_limit_type": "once_per_week",
                         "usage_limit_count": 1,
@@ -572,8 +571,7 @@ collection = {
                     auth_bearer="{{business_token}}",
                     description=(
                         "Deal/bundle offer: included_items (at least two names) plus "
-                        "original and deal prices. Empty external_url_label defaults "
-                        "to View Deal."
+                        "a deal price. Empty external_url_label defaults to View Deal."
                     ),
                 ),
                 req(

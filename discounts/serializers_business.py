@@ -506,6 +506,22 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
             Decimal(str(original)), Decimal(str(discounted))
         )
 
+    def _deal_price_fields(self, attrs):
+        discounted = attrs.get(
+            "discounted_price", getattr(self.instance, "discounted_price", None)
+        )
+        if discounted is None:
+            raise serializers.ValidationError(
+                {"discounted_price": "Deal price is required."}
+            )
+        if discounted <= 0:
+            raise serializers.ValidationError(
+                {"discounted_price": "Deal price must be greater than zero."}
+            )
+        attrs["original_price"] = None
+        attrs["discounted_price"] = discounted
+        attrs["discount_percent"] = Decimal("0.00")
+
     def _apply_default_external_url_label(self, attrs, offer_type: str):
         label = attrs.get("external_url_label")
         if label is None and self.instance is not None:
@@ -561,7 +577,7 @@ class BusinessOfferSerializer(serializers.ModelSerializer):
                         )
                     }
                 )
-            self._priced_offer_fields(attrs)
+            self._deal_price_fields(attrs)
             attrs["included_items"] = items
             attrs["item_name"] = ""
 

@@ -56,14 +56,26 @@ def _quantize_money(value: Decimal) -> Decimal:
 def compute_offer_payment(
     offer: Offer, *, bill_amount: Decimal | None = None
 ) -> OfferPaymentPreview:
-    if offer.offer_type in {Offer.OfferType.ITEM, Offer.OfferType.DEAL}:
-        original = Decimal(str(offer.original_price))
+    if offer.offer_type == Offer.OfferType.DEAL:
         discounted = Decimal(str(offer.discounted_price))
-        label = offer.item_name or offer.title
         return OfferPaymentPreview(
             offer_type=offer.offer_type,
             discount_percent=offer.discount_percent,
-            item_name=label,
+            item_name=offer.title,
+            original_amount=None,
+            discount_amount=None,
+            amount_to_pay=discounted,
+            bill_amount=None,
+            requires_bill_amount=False,
+        )
+
+    if offer.offer_type == Offer.OfferType.ITEM:
+        original = Decimal(str(offer.original_price))
+        discounted = Decimal(str(offer.discounted_price))
+        return OfferPaymentPreview(
+            offer_type=offer.offer_type,
+            discount_percent=offer.discount_percent,
+            item_name=offer.item_name,
             original_amount=original,
             discount_amount=_quantize_money(original - discounted),
             amount_to_pay=discounted,
