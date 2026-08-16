@@ -108,7 +108,7 @@ Without these, uploaded logos work briefly then return **404 Not Found** after t
 
 Redeploy after setting them. Re-upload any logos that already 404’d (those files were lost with the old local disk).
 
-**Build command:** `pip install -r requirements.txt && python manage.py collectstatic --noinput`  
+**Build command:** `pip install --retries 15 --timeout 120 -r requirements.txt && python manage.py collectstatic --noinput`  
 **Start command:** `python manage.py migrate --noinput && python manage.py ensure_superuser && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
 
 ### Django admin without Shell (Render free tier)
