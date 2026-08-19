@@ -1,111 +1,163 @@
 const copy = {
   de: {
-    navAbout: "Über uns",
+    navHome: "Start",
+    navExplore: "Entdecken",
+    navInstore: "Im Laden",
+    navOnline: "Online",
+    navInstoreHint: "Vor Ort nutzen",
+    navOnlineHint: "Zum Shop tippen",
     navApp: "Die App",
-    navShops: "Für Händler",
-    navCta: "Kontakt",
-    kicker: "GoLuto · Deutschland",
-    heroA: "Die Stadt wird",
-    heroB: "günstiger,",
-    heroC: "wenn du sie siehst.",
-    lede: "GoLuto ist die App für Angebote um die Ecke und im Netz. Kein Flyer, kein Code zum Vorlesen — du siehst den Deal, gehst hin, löst ein.",
-    soonNote: "Download folgt — Buttons sind schon da.",
+    navPartner: "Partner",
+    navCta: "App bald da",
+    eyebrow: "Bald in Deutschland",
+    heroTitle: "Sparen, wo du sowieso einkaufst.",
+    heroLede:
+      "Goluto macht Angebote in deutschen Läden und Online-Shops sichtbar. Du siehst den Deal, gehst hin oder klickst dich zum Shop.",
+    chInstore: "Im Laden",
+    chOnline: "Online",
+    notifyTitle: "Bald zum Download",
+    notifyBody: "iOS und Android. Buttons sind schon da.",
+    availableOn: "Verfügbar auf",
     iosTop: "Laden im",
     playTop: "Jetzt bei",
-    ctaStory: "Was GoLuto ist",
-    ctaMail: "hello@goluto.de",
-    chip1: "In der Nähe",
-    chip2: "Online",
-    chip3: "Ein Scan",
-    aboutEyebrow: "Die Idee",
-    aboutTitle: "Angebote dort, wo du gerade bist.",
-    about1:
-      "GoLuto verbindet Menschen mit Läden in ihrer Stadt. Du öffnest die App in Berlin oder anderswo in Deutschland und siehst, was in der Nähe und online gerade weniger kostet — Elektronik bei MediaMarkt, ein Hemd bei Zara, Alltag bei Rossmann, das Café um die Ecke.",
-    about2:
-      "Die Karte zeigt dir, wo der Rabatt wirklich liegt. Die Stores-Ansicht ist der Schaufensterbummel. Zuhause oder unterwegs: ein Scan an der Kasse, und das Angebot ist eingelöst. So einfach soll Sparen sein.",
-    about3:
-      "Für Händler ist GoLuto die andere Seite derselben Sache: Filiale anlegen, Angebot live stellen, QR an die Tür. Kunden finden euch, ohne dass ihr Flyer drucken müsst.",
-    step1t: "Sehen",
-    step1: "Deal auf der Karte oder im Feed. Kein Flyer, kein Rätsel.",
-    step2t: "Gehen",
-    step2: "Zum Laden um die Ecke — oder online, wenn’s passt.",
-    step3t: "Einlösen",
-    step3: "QR an der Kasse scannen. Das Angebot ist deins.",
-    appEyebrow: "So sieht’s aus",
-    appTitle: "Drei Blickwinkel. Eine App.",
-    cap1t: "Home",
-    cap1: "Was sich heute lohnt — in der Nähe und online.",
-    cap2t: "Discover",
-    cap2: "Die Stadt als Karte. Pins sind Deals, nicht nur Orte.",
-    cap3t: "Stores",
-    cap3: "Läden wie ein Feed. Tippen, merken, hingehen.",
-    youEyebrow: "Für dich",
-    youTitle: "Sparen, ohne zu suchen.",
-    youBody:
-      "Standort, ein Blick auf die Karte, fertig. GoLuto ist kostenlos für alle, die Angebote finden und einlösen wollen. Login mit Telefon, Google oder Apple.",
-    shopEyebrow: "Für Händler",
-    shopTitle: "Sichtbar werden, wo Kunden schon sind.",
-    shopBody:
-      "Ihr stellt ein, was gilt. Wir bringen es zu Leuten in der Straße. Filialen, Angebote, QR-Poster, ein Dashboard. Schreib uns, wenn dein Laden dabei sein soll.",
-    shopCta: "Als Händler schreiben",
-    ctaTitle: "Bald auf iOS und Android.",
-    ctaBody: "Sag uns Bescheid. Wir sagen dir, wenn GoLuto live ist.",
-    footTag: "Lokale Angebote. Ein Scan.",
+    cardLine: "Im Laden · Online",
+    promiseTitle: "Wofür Goluto steht",
+    promiseLede:
+      "Die App ist noch nicht live. Statt erfundener Zahlen zeigen wir, was schon feststeht.",
+    p1t: "Deutschland zuerst",
+    p1: "Gebaut für Städte und Shops hier — nicht als Ableger eines anderen Marktes.",
+    p2t: "Im Laden",
+    p2: "Angebote in der Filiale finden, auf der Karte sehen, vor Ort nutzen.",
+    p3t: "Online",
+    p3: "E-Commerce-Deals neben den Läden in deiner Straße. Eine App für beides.",
+    p4t: "Bald in den Stores",
+    p4: "Händler können sich jetzt schon melden. Die App folgt in iOS und Android.",
+    introTitle: "Willkommen bei der Spar-App für Deutschland.",
+    introBody:
+      "Mode in der Innenstadt, der Wocheneinkauf, Elektronik im Netz, der Kaffee um die Ecke: Goluto sammelt, was sich lohnt — in der Nähe und online.",
+    introTag: "Einkaufen? Dann mit Goluto.",
+    howTitle: "So funktioniert’s",
+    howLede: "Kein Scanner. Kein Lieferdienst. Nur der Deal, wenn du ihn brauchst.",
+    h1t: "Finden",
+    h1b: "Feed oder Karte: was in deiner Straße und in deutschen Online-Shops gerade gilt.",
+    h2t: "Nutzen",
+    h2b: "Im Laden zeigst du den Deal in der App. Online tippst du dich zum Shop.",
+    h3t: "Sparen",
+    h3b: "Der Preis gilt an der Kasse oder im Warenkorb. Fertig — ohne Extra-App vom Händler.",
+    s1t: "Vollpreis muss nicht die Regel sein.",
+    s1b: "Im Laden siehst du, was gerade gilt — Mode, Drogerie, Elektronik, der Laden um die Ecke. Der Deal liegt in der App, du nutzt ihn vor Ort.",
+    s2t: "Geh durch die Stadt. Spar dabei.",
+    s2b: "Die Karte zeigt Filialen und Angebote in deiner Nähe. Berlin zuerst, dann weitere Städte in Deutschland. Pins sind Deals — nicht nur Orte.",
+    s3t: "Auch vom Sofa aus.",
+    s3b: "Online-Shops liegen neben den Läden in derselben App. Filter auf „Online“, tippe dich zum Angebot, fertig. Kein Lieferdienst von uns — nur die Deals, die du im Netz sowieso suchst.",
+    s4t: "Zeig deine Marke dort, wo Leute sparen.",
+    s4b: "Goluto ist die Bühne für Händler: Filiale, Angebot, Sichtbarkeit bei Leuten in der Straße und im Feed. Wir starten klein und ernsthaft — schreib uns, wenn dein Laden oder Shop dabei sein soll.",
+    learnMore: "Mehr erfahren",
+    shopCta: "Als Partner schreiben",
+    joinTitle: "Drei Wege, dabei zu sein",
+    j1t: "Für dich",
+    j1b: "Kostenlos Angebote finden — im Laden um die Ecke und in Online-Shops. Login mit Telefon, Google oder Apple.",
+    j2t: "Für Händler",
+    j2b: "Filiale anlegen, Deal live stellen, von Leuten in der Nähe gefunden werden. Dashboard statt Flyerberg.",
+    j3t: "Mitgestalten",
+    j3b: "Wir bauen Goluto in Deutschland auf. Wenn du mitmachen willst — Produkt, Partnerschaften, oder einfach Feedback — schreib uns.",
+    catsTitle: "Alltag, nur günstiger.",
+    catsLede: "So sieht die Welt aus, in der Goluto unterwegs ist — noch ohne Live-Rabatte, aber mit klarem Fokus.",
+    cat1: "Mode",
+    cat2: "Alltag",
+    cat3: "Elektronik",
+    cat4: "Cafés",
+    cat5: "Genuss",
+    dlTitle: "Goluto startet in Deutschland.",
+    dlSub: "Sag uns Bescheid — wir schreiben dir, wenn die App live ist.",
+    waitLabel: "E-Mail",
+    waitPh: "deine@email.de",
+    waitBtn: "Sag Bescheid",
+    mailCta: "hello@goluto.de",
+    footTag: "Im Laden und online. Für Deutschland.",
+    footLinks: "Links",
+    footContact: "Kontakt",
     imprint: "Impressum",
     privacy: "Datenschutz",
   },
   en: {
-    navAbout: "About",
+    navHome: "Home",
+    navExplore: "Explore",
+    navInstore: "In-store",
+    navOnline: "Online",
+    navInstoreHint: "Use it in the shop",
+    navOnlineHint: "Tap through to the shop",
     navApp: "The app",
-    navShops: "For shops",
-    navCta: "Contact",
-    kicker: "GoLuto · Germany",
-    heroA: "The city gets",
-    heroB: "cheaper",
-    heroC: "when you can see it.",
-    lede: "GoLuto is the app for deals around the corner and online. No flyer, no code to read out — see it, go there, redeem.",
-    soonNote: "Download coming — buttons are ready.",
+    navPartner: "Partner",
+    navCta: "App coming soon",
+    eyebrow: "Coming to Germany",
+    heroTitle: "Save where you already shop.",
+    heroLede:
+      "Goluto makes deals in German stores and online shops easy to see. Spot the offer, walk in or tap through to the shop.",
+    chInstore: "In-store",
+    chOnline: "Online",
+    notifyTitle: "Download coming soon",
+    notifyBody: "iOS and Android. The buttons are already here.",
+    availableOn: "Available on",
     iosTop: "Download on the",
     playTop: "Get it on",
-    ctaStory: "What GoLuto is",
-    ctaMail: "hello@goluto.de",
-    chip1: "Nearby",
-    chip2: "Online",
-    chip3: "One scan",
-    aboutEyebrow: "The idea",
-    aboutTitle: "Deals where you actually are.",
-    about1:
-      "GoLuto connects people with shops in their city. Open the app in Berlin or anywhere in Germany and see what’s cheaper nearby and online — electronics at MediaMarkt, a shirt at Zara, everyday at Rossmann, the café on your street.",
-    about2:
-      "The map shows where the discount really is. Stores is a window-shopping feed. At home or out: one scan at the till, and the offer is yours. Saving should feel that simple.",
-    about3:
-      "For merchants, GoLuto is the other half of the same idea: add a branch, publish a deal, QR on the door. Customers find you without a stack of flyers.",
-    step1t: "See",
-    step1: "The deal on the map or in the feed. No flyer, no puzzle.",
-    step2t: "Go",
-    step2: "To the shop around the corner — or online, if that fits.",
-    step3t: "Redeem",
-    step3: "Scan the QR at the till. The offer is yours.",
-    appEyebrow: "How it looks",
-    appTitle: "Three views. One app.",
-    cap1t: "Home",
-    cap1: "What’s worth it today — nearby and online.",
-    cap2t: "Discover",
-    cap2: "The city as a map. Pins are deals, not just places.",
-    cap3t: "Stores",
-    cap3: "Shops as a feed. Tap, save, go.",
-    youEyebrow: "For you",
-    youTitle: "Save without hunting.",
-    youBody:
-      "Location, a look at the map, done. GoLuto is free for anyone who wants to find and redeem offers. Sign in with phone, Google, or Apple.",
-    shopEyebrow: "For shops",
-    shopTitle: "Show up where customers already are.",
-    shopBody:
-      "You publish what’s on. We put it in front of people on the street. Branches, offers, QR posters, a dashboard. Write us if your store should be in.",
-    shopCta: "Write as a merchant",
-    ctaTitle: "Coming soon on iOS and Android.",
-    ctaBody: "Tell us you’re in. We’ll tell you when GoLuto is live.",
-    footTag: "Local deals. One scan.",
+    cardLine: "In-store · Online",
+    promiseTitle: "What Goluto stands for",
+    promiseLede:
+      "The app is not live yet. Instead of vanity stats, here is what is already decided.",
+    p1t: "Germany first",
+    p1: "Built for cities and shops here — not a copy of another market.",
+    p2t: "In-store",
+    p2: "Find offers in the shop, see them on the map, use them on the spot.",
+    p3t: "Online",
+    p3: "E-commerce deals next to the shops on your street. One app for both.",
+    p4t: "Coming to the stores",
+    p4: "Merchants can reach out now. The app follows on iOS and Android.",
+    introTitle: "Welcome to the savings app for Germany.",
+    introBody:
+      "Fashion in the city, the weekly shop, electronics online, the café on the corner: Goluto gathers what’s worth it — nearby and online.",
+    introTag: "Shopping? Do it with Goluto.",
+    howTitle: "How it works",
+    howLede: "No scanner. No delivery. Just the deal, when you need it.",
+    h1t: "Find",
+    h1b: "Feed or map: what’s on in your street and in German online shops.",
+    h2t: "Use",
+    h2b: "In-store you show the deal in the app. Online you tap through to the shop.",
+    h3t: "Save",
+    h3b: "The price applies at the till or in the cart. Done — no extra merchant app.",
+    s1t: "Full price doesn’t have to be the default.",
+    s1b: "In-store you see what’s on — fashion, drugstore, electronics, the shop around the corner. The deal sits in the app, you use it on the spot.",
+    s2t: "Walk the city. Save along the way.",
+    s2b: "The map shows branches and offers near you. Berlin first, then more cities in Germany. Pins are deals — not just places.",
+    s3t: "From the sofa, too.",
+    s3b: "Online shops sit next to local stores in the same app. Filter to Online, tap through to the offer, done. We don’t deliver — we surface the deals you’d look for anyway.",
+    s4t: "Show your brand where people save.",
+    s4b: "Goluto is the stage for merchants: a branch, an offer, visibility with people on the street and in the feed. We start small and serious — write us if your shop should be in.",
+    learnMore: "Learn more",
+    shopCta: "Write as a partner",
+    joinTitle: "Three ways to join",
+    j1t: "For you",
+    j1b: "Find offers for free — in the shop around the corner and in online stores. Sign in with phone, Google, or Apple.",
+    j2t: "For merchants",
+    j2b: "Add a branch, publish a deal, get found by people nearby. A dashboard instead of a stack of flyers.",
+    j3t: "Build with us",
+    j3b: "We’re building Goluto in Germany. If you want in — product, partnerships, or just feedback — write us.",
+    catsTitle: "Everyday life, just cheaper.",
+    catsLede: "This is the world Goluto is built for — no live discounts yet, but a clear focus.",
+    cat1: "Fashion",
+    cat2: "Everyday",
+    cat3: "Electronics",
+    cat4: "Cafés",
+    cat5: "Treats",
+    dlTitle: "Goluto is launching in Germany.",
+    dlSub: "Tell us you’re in — we’ll write when the app is live.",
+    waitLabel: "Email",
+    waitPh: "you@email.com",
+    waitBtn: "Notify me",
+    mailCta: "hello@goluto.de",
+    footTag: "In-store and online. For Germany.",
+    footLinks: "Links",
+    footContact: "Contact",
     imprint: "Imprint",
     privacy: "Privacy",
   },
@@ -118,6 +170,10 @@ function applyLang(lang) {
     const key = el.getAttribute("data-i18n");
     if (dict[key]) el.textContent = dict[key];
   });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    const key = el.getAttribute("data-i18n-placeholder");
+    if (dict[key]) el.setAttribute("placeholder", dict[key]);
+  });
   document.querySelectorAll(".lang button").forEach((btn) => {
     btn.setAttribute("aria-pressed", String(btn.dataset.lang === lang));
   });
@@ -129,133 +185,165 @@ document.querySelectorAll(".lang button").forEach((btn) => {
 });
 
 const menuBtn = document.querySelector(".menu-btn");
+
+function closeMenu() {
+  document.body.classList.remove("menu-open");
+  menuBtn?.setAttribute("aria-expanded", "false");
+  document.querySelectorAll(".drop").forEach((d) => d.classList.remove("open"));
+}
+
 menuBtn?.addEventListener("click", () => {
   const open = document.body.classList.toggle("menu-open");
   menuBtn.setAttribute("aria-expanded", String(open));
 });
 
 document.querySelectorAll(".nav-panel a").forEach((link) => {
-  link.addEventListener("click", () => {
-    document.body.classList.remove("menu-open");
-    menuBtn?.setAttribute("aria-expanded", "false");
+  link.addEventListener("click", closeMenu);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeMenu();
+});
+
+document.querySelectorAll(".drop-btn").forEach((btn) => {
+  btn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const drop = btn.closest(".drop");
+    const open = drop?.classList.toggle("open");
+    btn.setAttribute("aria-expanded", String(Boolean(open)));
   });
+});
+
+document.addEventListener("click", () => {
+  document.querySelectorAll(".drop").forEach((d) => d.classList.remove("open"));
 });
 
 const bar = document.querySelector(".progress");
 const nav = document.querySelector(".nav");
+const toTop = document.querySelector(".to-top");
 
-function onScroll() {
+function setActiveNav(key) {
+  document.querySelectorAll("[data-nav]").forEach((el) => {
+    el.classList.toggle("is-active", el.dataset.nav === key);
+  });
+}
+
+const navSections = [
+  ["how", "explore"],
+  ["instore", "explore"],
+  ["places", "explore"],
+  ["online", "explore"],
+  ["partner", "partner"],
+  ["app", "app"],
+  ["explore", "explore"],
+  ["download", "download"],
+];
+
+function syncNav() {
   if (bar) {
     const max = document.documentElement.scrollHeight - window.innerHeight;
     bar.style.width = `${max > 0 ? (window.scrollY / max) * 100 : 0}%`;
   }
-  nav?.classList.toggle("scrolled", window.scrollY > 16);
+  nav?.classList.toggle("scrolled", window.scrollY > 8);
+  toTop?.classList.toggle("show", window.scrollY > 480);
+
+  let current = "top";
+  const mark = window.scrollY + 120;
+  for (const [id, key] of navSections) {
+    const el = document.getElementById(id);
+    if (el && el.offsetTop <= mark) current = key;
+  }
+  if (window.scrollY < 40) current = "top";
+  setActiveNav(current);
 }
 
-window.addEventListener("scroll", onScroll, { passive: true });
-onScroll();
+window.addEventListener("scroll", syncNav, { passive: true });
+syncNav();
+
+toTop?.addEventListener("click", () => {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
 
 const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+requestAnimationFrame(() => {
+  document.querySelector(".hero")?.classList.add("is-ready");
+});
+
 if (!reduce) {
+  const stage = document.querySelector("[data-parallax]");
+  if (stage) {
+    stage.addEventListener("pointermove", (event) => {
+      const box = stage.getBoundingClientRect();
+      const x = (event.clientX - box.left) / box.width - 0.5;
+      const y = (event.clientY - box.top) / box.height - 0.5;
+      stage.style.setProperty("--px", x.toFixed(3));
+      stage.style.setProperty("--py", y.toFixed(3));
+    });
+    stage.addEventListener("pointerleave", () => {
+      stage.style.setProperty("--px", "0");
+      stage.style.setProperty("--py", "0");
+    });
+  }
+
   const io = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           entry.target.classList.add("in");
+          entry.target.addEventListener(
+            "animationend",
+            () => entry.target.classList.add("shown"),
+            { once: true },
+          );
           io.unobserve(entry.target);
         }
       });
     },
-    { threshold: 0.16, rootMargin: "0px 0px -8% 0px" },
+    { threshold: 0.14, rootMargin: "0px 0px -6% 0px" },
   );
-  document.querySelectorAll(".rise").forEach((el, i) => {
-    el.style.setProperty("--d", `${(i % 4) * 90}ms`);
+
+  document.querySelectorAll(".rise").forEach((el) => {
+    const siblings = [...(el.parentElement?.children || [])].filter((node) =>
+      node.classList.contains("rise"),
+    );
+    const index = Math.max(0, siblings.indexOf(el));
+    el.style.setProperty("--d", `${index * 90}ms`);
     io.observe(el);
   });
 
-  const hero = document.querySelector(".hero");
-  const spot = document.getElementById("spot");
-  const stack = document.querySelector(".stack");
-  const floats = stack ? [...stack.querySelectorAll(".float")] : [];
-
-  let sx = window.innerWidth * 0.7;
-  let sy = 180;
-  let spx = sx;
-  let spy = sy;
-  let tx = 0;
-  let ty = 0;
-  let cx = 0;
-  let cy = 0;
-
-  hero?.addEventListener("pointermove", (event) => {
-    const r = hero.getBoundingClientRect();
-    sx = event.clientX - r.left;
-    sy = event.clientY - r.top;
-  });
-
-  if (stack) {
-    stack.addEventListener("pointermove", (event) => {
-      const r = stack.getBoundingClientRect();
-      tx = (event.clientX - r.left) / r.width - 0.5;
-      ty = (event.clientY - r.top) / r.height - 0.5;
-    });
-    stack.addEventListener("pointerleave", () => {
-      tx = 0;
-      ty = 0;
-    });
+  const steps = document.querySelector(".steps");
+  if (steps) {
+    const stepIo = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in-view");
+            stepIo.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.3 },
+    );
+    stepIo.observe(steps);
   }
-
-  function tick() {
-    spx += (sx - spx) * 0.1;
-    spy += (sy - spy) * 0.1;
-    cx += (tx - cx) * 0.08;
-    cy += (ty - cy) * 0.08;
-
-    if (spot) spot.style.transform = `translate3d(${spx}px, ${spy}px, 0)`;
-
-    floats.forEach((el, i) => {
-      const device = el.querySelector(".device");
-      if (!device) return;
-      const d = (i + 1) * 18;
-      device.style.transform = `translate3d(${cx * d}px, ${cy * d}px, 0) rotateX(${-cy * 10}deg) rotateY(${cx * 14}deg)`;
-    });
-
-    requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-
-  document.querySelectorAll(".tilt").forEach((card) => {
-    const device = card.querySelector(".device");
-    if (!device) return;
-    card.addEventListener("pointermove", (event) => {
-      const r = card.getBoundingClientRect();
-      const x = (event.clientX - r.left) / r.width - 0.5;
-      const y = (event.clientY - r.top) / r.height - 0.5;
-      device.style.transform = `translateY(-10px) rotateX(${-y * 12}deg) rotateY(${x * 14}deg)`;
-    });
-    card.addEventListener("pointerleave", () => {
-      device.style.transform = "";
-    });
-  });
-
-  document.querySelectorAll("[data-magnetic]").forEach((el) => {
-    el.addEventListener("pointermove", (event) => {
-      const r = el.getBoundingClientRect();
-      const x = event.clientX - (r.left + r.width / 2);
-      const y = event.clientY - (r.top + r.height / 2);
-      el.style.transform = `translate(${x * 0.22}px, ${y * 0.22}px)`;
-    });
-    el.addEventListener("pointerleave", () => {
-      el.style.transform = "";
-    });
-  });
 } else {
+  document.querySelector(".hero")?.classList.add("is-ready");
   document.querySelectorAll(".rise").forEach((el) => el.classList.add("in"));
+  document.querySelector(".steps")?.classList.add("in-view");
 }
 
 applyLang(localStorage.getItem("goluto-lang") || "de");
 
 document.querySelectorAll(".store.is-soon").forEach((el) => {
   el.addEventListener("click", (event) => event.preventDefault());
+});
+
+document.getElementById("waitlist")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const email = event.target.email?.value?.trim();
+  if (!email) return;
+  const subject = encodeURIComponent("Goluto Launch");
+  const body = encodeURIComponent(`Bitte benachrichtigen: ${email}`);
+  window.location.href = `mailto:hello@goluto.de?subject=${subject}&body=${body}`;
 });

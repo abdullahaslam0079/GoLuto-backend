@@ -3,70 +3,101 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>GoLuto — Angebote in deiner Nähe</title>
+    <title>Goluto — Sparen in Deutschland</title>
     <meta
       name="description"
-      content="GoLuto ist die App, die lokale und Online-Angebote in Deutschland sichtbar macht. Entdecken, auf der Karte finden, im Laden einlösen."
+      content="Goluto ist die Spar-App für Deutschland: Angebote im Laden und im Online-Shop, auf der Karte und im Feed. Bald für iOS und Android."
     />
-    <meta property="og:title" content="GoLuto — Angebote in deiner Nähe" />
-    <meta property="og:description" content="Die Stadt wird günstiger, wenn du sie siehst." />
+    <meta property="og:title" content="Goluto — Sparen in Deutschland" />
+    <meta
+      property="og:description"
+      content="Angebote im Laden und online. Gebaut für Deutschland. Bald im App Store und bei Google Play."
+    />
     <meta property="og:image" content="https://goluto.de/assets/icon.png" />
     <link rel="icon" href="assets/icon.png" />
-    <link rel="stylesheet" href="css/styles.css?v=9" />
+    <link rel="stylesheet" href="css/styles.css?v=14" />
+    <noscript>
+      <style>
+        .hero-copy > *,
+        .hero-visual,
+        .rise {
+          opacity: 1 !important;
+          translate: none !important;
+        }
+      </style>
+    </noscript>
   </head>
   <body>
-    <div class="grain" aria-hidden="true"></div>
-    <div class="progress" aria-hidden="true"></div>
     <header class="nav">
       <div class="wrap nav-inner">
         <a class="brand" href="#top">
-          <img src="assets/icon.png" alt="" />
-          <span class="wordmark"><b>Go</b>luto</span>
+          <img class="brand-icon" src="assets/icon.png" alt="" />
+          <span class="brand-name">Goluto</span>
         </a>
         <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav-panel" aria-label="Menu">
           <span></span><span></span>
         </button>
         <div class="nav-panel" id="nav-panel">
-          <a href="#about" data-i18n="navAbout">Über uns</a>
-          <a href="#app" data-i18n="navApp">Die App</a>
-          <a href="#shops" data-i18n="navShops">Für Händler</a>
-          <div class="lang">
-            <button type="button" data-lang="de" aria-pressed="true">DE</button>
-            <button type="button" data-lang="en" aria-pressed="false">EN</button>
+          <nav class="nav-links" aria-label="Hauptnavigation">
+            <a href="#top" data-nav="top" class="is-active" data-i18n="navHome">Start</a>
+            <div class="drop" data-nav="explore">
+              <button type="button" class="drop-btn" aria-expanded="false" aria-haspopup="true">
+                <span data-i18n="navExplore">Entdecken</span>
+                <svg viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+              </button>
+              <div class="drop-menu">
+                <a href="#instore">
+                  <strong data-i18n="navInstore">Im Laden</strong>
+                  <small data-i18n="navInstoreHint">Vor Ort nutzen</small>
+                </a>
+                <a href="#online">
+                  <strong data-i18n="navOnline">Online</strong>
+                  <small data-i18n="navOnlineHint">Zum Shop tippen</small>
+                </a>
+              </div>
+            </div>
+            <a href="#app" data-nav="app" data-i18n="navApp">Die App</a>
+            <a href="#partner" data-nav="partner" data-i18n="navPartner">Partner</a>
+          </nav>
+          <div class="nav-end">
+            <div class="lang" role="group" aria-label="Language">
+              <button type="button" data-lang="de" aria-pressed="true">DE</button>
+              <button type="button" data-lang="en" aria-pressed="false">EN</button>
+            </div>
+            <a class="nav-cta" href="#download" data-nav="download">
+              <img src="assets/icon.png" alt="" />
+              <span data-i18n="navCta">App bald da</span>
+            </a>
           </div>
-          <a class="btn btn-solid" data-magnetic href="mailto:hello@goluto.de" data-i18n="navCta">Kontakt</a>
         </div>
       </div>
+      <div class="progress" aria-hidden="true"></div>
     </header>
 
     <main id="top">
       <section class="hero">
-        <div class="hero-fx" aria-hidden="true">
-          <span class="orb o1"></span>
-          <span class="orb o2"></span>
-          <span class="orb o3"></span>
-          <span class="spot" id="spot"></span>
-          <span class="grid-lines"></span>
-        </div>
         <div class="wrap hero-grid">
           <div class="hero-copy">
-            <p class="kicker" data-i18n="kicker">GoLuto · Deutschland</p>
-            <h1>
-              <span class="line"><span data-i18n="heroA">Die Stadt wird</span></span>
-              <span class="line"><span class="accent" data-i18n="heroB">günstiger,</span></span>
-              <span class="line"><span data-i18n="heroC">wenn du sie siehst.</span></span>
-            </h1>
-            <p class="lede" data-i18n="lede">
-              GoLuto ist die App für Angebote um die Ecke und im Netz. Kein Flyer,
-              kein Code zum Vorlesen — du siehst den Deal, gehst hin, löst ein.
+            <p class="eyebrow" data-i18n="eyebrow">Bald in Deutschland</p>
+            <h1 data-i18n="heroTitle">Sparen, wo du sowieso einkaufst.</h1>
+            <p class="lede" data-i18n="heroLede">
+              Goluto macht Angebote in deutschen Läden und Online-Shops sichtbar.
+              Du siehst den Deal, gehst hin oder klickst dich zum Shop.
             </p>
-            <ul class="chips">
-              <li data-i18n="chip1">In der Nähe</li>
-              <li data-i18n="chip2">Online</li>
-              <li data-i18n="chip3">Ein Scan</li>
-            </ul>
+            <p class="channels">
+              <a href="#instore" data-i18n="chInstore">Im Laden</a>
+              <span aria-hidden="true">|</span>
+              <a href="#online" data-i18n="chOnline">Online</a>
+            </p>
+            <div class="notify-card">
+              <img class="notify-icon" src="assets/icon.png" alt="" />
+              <div>
+                <strong data-i18n="notifyTitle">Bald zum Download</strong>
+                <p data-i18n="notifyBody">iOS und Android. Buttons sind schon da.</p>
+              </div>
+            </div>
+            <p class="avail" data-i18n="availableOn">Verfügbar auf</p>
             <div class="stores">
-              <!-- Add real URLs later: href="https://apps.apple.com/app/..." and remove is-soon -->
               <a class="store is-soon" id="download-ios" href="#" aria-disabled="true">
                 <svg class="logo-apple" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.37 12.64c-.03-2.42 1.98-3.58 2.07-3.64-1.13-1.65-2.88-1.88-3.5-1.9-1.49-.15-2.91.88-3.66.88-.76 0-1.92-.86-3.16-.83-1.62.02-3.12.95-3.96 2.4-1.69 2.93-.43 7.26 1.21 9.64.8 1.17 1.76 2.47 3.01 2.43 1.21-.05 1.67-.78 3.13-.78 1.45 0 1.87.78 3.14.75 1.3-.02 2.12-1.18 2.91-2.36.92-1.34 1.3-2.64 1.32-2.71-.03-.01-2.53-.97-2.56-3.85zm-2.4-7.08c.66-.8 1.1-1.91.98-3.02-.95.04-2.09.63-2.77 1.43-.6.7-1.13 1.83-.99 2.91 1.05.08 2.12-.54 2.78-1.32z"/></svg>
                 <span>
@@ -87,169 +118,314 @@
                 </span>
               </a>
             </div>
-            <p class="soon-note" data-i18n="soonNote">Download folgt — Buttons sind schon da.</p>
           </div>
-          <div class="stack" aria-hidden="true">
-            <div class="stack-glow"></div>
-            <div class="float s3">
-              <div class="device"><img src="assets/screen-stores.png" alt="" /></div>
+          <div class="hero-visual" aria-hidden="true" data-parallax>
+            <span class="spark spark-a"></span>
+            <span class="spark spark-b"></span>
+            <div class="orb orb-1"><img src="assets/icon.png" alt="" /></div>
+            <div class="orb orb-2"><img src="assets/icon.png" alt="" /></div>
+            <div class="phone tilt-l">
+              <div class="device">
+                <img src="assets/screen-home.png" alt="" />
+              </div>
             </div>
-            <div class="float s2">
-              <div class="device"><img src="assets/screen-map.png" alt="" /></div>
+            <div class="phone tilt-r">
+              <div class="device">
+                <img src="assets/screen-map.png" alt="" />
+              </div>
             </div>
-            <div class="float s1">
-              <div class="device"><img src="assets/screen-home.png" alt="" /></div>
+            <div class="g-card float-card">
+              <div class="g-card-top">
+                <img src="assets/icon.png" alt="" />
+                <b>Goluto</b>
+              </div>
+              <span class="g-chip"></span>
+              <p data-i18n="cardLine">Im Laden · Online</p>
+              <small>DE · 2026</small>
             </div>
-          </div>
-        </div>
-        <div class="marquee" aria-hidden="true">
-          <div class="marquee-track">
-            <span>MediaMarkt</span><span>Zara</span><span>Rossmann</span>
-            <span>Café um die Ecke</span><span>Berlin</span><span>München</span>
-            <span>Hamburg</span><span>Köln</span><span>Leipzig</span>
-            <span>MediaMarkt</span><span>Zara</span><span>Rossmann</span>
-            <span>Café um die Ecke</span><span>Berlin</span><span>München</span>
-            <span>Hamburg</span><span>Köln</span><span>Leipzig</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="about" id="about">
-        <div class="wrap about-grid">
-          <p class="eyebrow rise" data-i18n="aboutEyebrow">Die Idee</p>
-          <div class="prose">
-            <h2 class="rise" data-i18n="aboutTitle">Angebote dort, wo du gerade bist.</h2>
-            <p class="rise" data-i18n="about1">
-              GoLuto verbindet Menschen mit Läden in ihrer Stadt. Du öffnest die App
-              in Berlin oder anderswo in Deutschland und siehst, was in der Nähe
-              und online gerade weniger kostet — Elektronik bei MediaMarkt, ein
-              Hemd bei Zara, Alltag bei Rossmann, das Café um die Ecke.
-            </p>
-            <p class="rise" data-i18n="about2">
-              Die Karte zeigt dir, wo der Rabatt wirklich liegt. Die Stores-Ansicht
-              ist der Schaufensterbummel. Zuhause oder unterwegs: ein Scan an der
-              Kasse, und das Angebot ist eingelöst. So einfach soll Sparen sein.
-            </p>
-            <p class="rise" data-i18n="about3">
-              Für Händler ist GoLuto die andere Seite derselben Sache: Filiale
-              anlegen, Angebot live stellen, QR an die Tür. Kunden finden euch,
-              ohne dass ihr Flyer drucken müsst.
-            </p>
           </div>
         </div>
       </section>
 
-      <section class="how">
+      <section class="promise" id="about">
         <div class="wrap">
-          <div class="steps">
-            <article class="step rise">
-              <span class="n">01</span>
-              <h3 data-i18n="step1t">Sehen</h3>
-              <p data-i18n="step1">Deal auf der Karte oder im Feed. Kein Flyer, kein Rätsel.</p>
+          <h2 class="rise" data-i18n="promiseTitle">Wofür Goluto steht</h2>
+          <p class="promise-lede rise" data-i18n="promiseLede">
+            Die App ist noch nicht live. Statt erfundener Zahlen zeigen wir, was
+            schon feststeht.
+          </p>
+          <div class="promise-grid">
+            <article class="rise">
+              <span>01</span>
+              <h3 data-i18n="p1t">Deutschland zuerst</h3>
+              <p data-i18n="p1">Gebaut für Städte und Shops hier — nicht als Ableger eines anderen Marktes.</p>
             </article>
-            <article class="step rise">
-              <span class="n">02</span>
-              <h3 data-i18n="step2t">Gehen</h3>
-              <p data-i18n="step2">Zum Laden um die Ecke — oder online, wenn’s passt.</p>
+            <article class="rise">
+              <span>02</span>
+              <h3 data-i18n="p2t">Im Laden</h3>
+              <p data-i18n="p2">Angebote in der Filiale finden, auf der Karte sehen, vor Ort nutzen.</p>
             </article>
-            <article class="step rise">
-              <span class="n">03</span>
-              <h3 data-i18n="step3t">Einlösen</h3>
-              <p data-i18n="step3">QR an der Kasse scannen. Das Angebot ist deins.</p>
+            <article class="rise">
+              <span>03</span>
+              <h3 data-i18n="p3t">Online</h3>
+              <p data-i18n="p3">E-Commerce-Deals neben den Läden in deiner Straße. Eine App für beides.</p>
+            </article>
+            <article class="rise">
+              <span>04</span>
+              <h3 data-i18n="p4t">Bald in den Stores</h3>
+              <p data-i18n="p4">Händler können sich jetzt schon melden. Die App folgt in iOS und Android.</p>
             </article>
           </div>
-        </div>
-      </section>
-
-      <section class="app" id="app">
-        <div class="wrap">
-          <div class="app-head">
-            <p class="eyebrow rise" data-i18n="appEyebrow">So sieht’s aus</p>
-            <h2 class="rise" data-i18n="appTitle">Drei Blickwinkel. Eine App.</h2>
-          </div>
-          <div class="screens">
-            <figure class="rise tilt">
-              <div class="device">
-                <img src="assets/screen-home.png" alt="GoLuto Home" loading="lazy" />
-              </div>
-              <figcaption>
-                <strong data-i18n="cap1t">Home</strong>
-                <span data-i18n="cap1">Was sich heute lohnt — in der Nähe und online.</span>
-              </figcaption>
-            </figure>
-            <figure class="rise tilt">
-              <div class="device">
-                <img src="assets/screen-map.png" alt="GoLuto Discover" loading="lazy" />
-              </div>
-              <figcaption>
-                <strong data-i18n="cap2t">Discover</strong>
-                <span data-i18n="cap2">Die Stadt als Karte. Pins sind Deals, nicht nur Orte.</span>
-              </figcaption>
-            </figure>
-            <figure class="rise tilt">
-              <div class="device">
-                <img src="assets/screen-stores.png" alt="GoLuto Stores" loading="lazy" />
-              </div>
-              <figcaption>
-                <strong data-i18n="cap3t">Stores</strong>
-                <span data-i18n="cap3">Läden wie ein Feed. Tippen, merken, hingehen.</span>
-              </figcaption>
-            </figure>
+          <div class="ticker" aria-hidden="true">
+            <div class="ticker-track">
+              <span>Berlin</span><span>Hamburg</span><span>München</span><span>Köln</span><span>Frankfurt</span><span>Düsseldorf</span><span>Stuttgart</span><span>Leipzig</span><span>Dresden</span><span>Hannover</span>
+              <span>Berlin</span><span>Hamburg</span><span>München</span><span>Köln</span><span>Frankfurt</span><span>Düsseldorf</span><span>Stuttgart</span><span>Leipzig</span><span>Dresden</span><span>Hannover</span>
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="split-band" id="shops">
-        <div class="wrap duo">
-          <article class="rise">
-            <p class="eyebrow" data-i18n="youEyebrow">Für dich</p>
-            <h2 data-i18n="youTitle">Sparen, ohne zu suchen.</h2>
-            <p data-i18n="youBody">
-              Standort, ein Blick auf die Karte, fertig. GoLuto ist kostenlos für
-              alle, die Angebote finden und einlösen wollen. Login mit Telefon,
-              Google oder Apple.
+      <section class="intro">
+        <div class="wrap intro-grid">
+          <div>
+            <h2 class="rise" data-i18n="introTitle">Willkommen bei der Spar-App für Deutschland.</h2>
+            <p class="rise" data-i18n="introBody">
+              Mode in der Innenstadt, der Wocheneinkauf, Elektronik im Netz, der Kaffee
+              um die Ecke: Goluto sammelt, was sich lohnt — in der Nähe und online.
             </p>
-          </article>
-          <article class="rise dark">
-            <p class="eyebrow light" data-i18n="shopEyebrow">Für Händler</p>
-            <h2 data-i18n="shopTitle">Sichtbar werden, wo Kunden schon sind.</h2>
-            <p data-i18n="shopBody">
-              Ihr stellt ein, was gilt. Wir bringen es zu Leuten in der Straße.
-              Filialen, Angebote, QR-Poster, ein Dashboard. Schreib uns, wenn dein
-              Laden dabei sein soll.
+            <p class="tagline rise" data-i18n="introTag">Einkaufen? Dann mit Goluto.</p>
+            <p class="channels rise">
+              <a href="#instore" data-i18n="chInstore">Im Laden</a>
+              <span aria-hidden="true">|</span>
+              <a href="#online" data-i18n="chOnline">Online</a>
             </p>
-            <a class="btn btn-light" data-magnetic href="mailto:hello@goluto.de?subject=GoLuto%20Business" data-i18n="shopCta">Als Händler schreiben</a>
-          </article>
+          </div>
+          <div class="intro-visual rise" aria-hidden="true">
+            <figure class="intro-photo">
+              <img src="assets/photos/together.jpg" alt="" />
+            </figure>
+            <div class="device intro-phone">
+              <img src="assets/screen-stores.png" alt="" />
+            </div>
+            <div class="orb orb-intro"><img src="assets/icon.png" alt="" /></div>
+          </div>
         </div>
       </section>
 
-      <section class="cta">
+      <section class="steps" id="how">
         <div class="wrap">
-          <div class="cta-ring rise">
-            <div class="cta-box">
-              <h2 data-i18n="ctaTitle">Bald auf iOS und Android.</h2>
-              <p data-i18n="ctaBody">Sag uns Bescheid. Wir sagen dir, wenn GoLuto live ist.</p>
-              <div class="stores on-dark">
-                <a class="store is-soon" href="#" aria-disabled="true">
-                  <svg class="logo-apple" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.37 12.64c-.03-2.42 1.98-3.58 2.07-3.64-1.13-1.65-2.88-1.88-3.5-1.9-1.49-.15-2.91.88-3.66.88-.76 0-1.92-.86-3.16-.83-1.62.02-3.12.95-3.96 2.4-1.69 2.93-.43 7.26 1.21 9.64.8 1.17 1.76 2.47 3.01 2.43 1.21-.05 1.67-.78 3.13-.78 1.45 0 1.87.78 3.14.75 1.3-.02 2.12-1.18 2.91-2.36.92-1.34 1.3-2.64 1.32-2.71-.03-.01-2.53-.97-2.56-3.85zm-2.4-7.08c.66-.8 1.1-1.91.98-3.02-.95.04-2.09.63-2.77 1.43-.6.7-1.13 1.83-.99 2.91 1.05.08 2.12-.54 2.78-1.32z"/></svg>
-                  <span>
-                    <small data-i18n="iosTop">Laden im</small>
-                    <b>App Store</b>
-                  </span>
-                </a>
-                <a class="store is-soon" href="#" aria-disabled="true">
-                  <svg class="logo-play" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="#34A853" d="M2.1 2.7v18.6c0 .7.7 1.1 1.2.7L14 12 3.3 2C2.8 1.7 2.1 2.1 2.1 2.7z"/>
-                    <path fill="#FBBC04" d="M17.2 8.9 14 12l3.2 3.1 3.6-2.1c1.1-.6 1.1-2.2 0-2.8l-3.6-1.3z"/>
-                    <path fill="#4285F4" d="M2.1 21.3 14 12l3.2 3.1L3.3 22c-.7.4-1.5-.1-1.2-.7z"/>
-                    <path fill="#EA4335" d="M17.2 15.1 14 12 2.1 2.7c-.3-1 .5-1.4 1.2-.7l13.9 8z"/>
-                  </svg>
-                  <span>
-                    <small data-i18n="playTop">Jetzt bei</small>
-                    <b>Google Play</b>
-                  </span>
-                </a>
-              </div>
+          <h2 class="center rise" data-i18n="howTitle">So funktioniert’s</h2>
+          <p class="center muted rise" data-i18n="howLede">
+            Kein Scanner. Kein Lieferdienst. Nur der Deal, wenn du ihn brauchst.
+          </p>
+          <div class="steps-grid">
+            <article class="rise">
+              <span>01</span>
+              <h3 data-i18n="h1t">Finden</h3>
+              <p data-i18n="h1b">Feed oder Karte: was in deiner Straße und in deutschen Online-Shops gerade gilt.</p>
+            </article>
+            <article class="rise">
+              <span>02</span>
+              <h3 data-i18n="h2t">Nutzen</h3>
+              <p data-i18n="h2b">Im Laden zeigst du den Deal in der App. Online tippst du dich zum Shop.</p>
+            </article>
+            <article class="rise">
+              <span>03</span>
+              <h3 data-i18n="h3t">Sparen</h3>
+              <p data-i18n="h3b">Der Preis gilt an der Kasse oder im Warenkorb. Fertig — ohne Extra-App vom Händler.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="split" id="instore">
+        <div class="wrap split-row">
+          <figure class="shot rise">
+            <img src="assets/photos/checkout.jpg" alt="" />
+            <span class="shot-badge"><img src="assets/icon.png" alt="" /></span>
+          </figure>
+          <div class="split-copy rise">
+            <h2 data-i18n="s1t">Vollpreis muss nicht die Regel sein.</h2>
+            <p data-i18n="s1b">
+              Im Laden siehst du, was gerade gilt — Mode, Drogerie, Elektronik, der
+              Laden um die Ecke. Der Deal liegt in der App, du nutzt ihn vor Ort.
+            </p>
+            <a class="btn btn-outline" href="#how" data-i18n="learnMore">Mehr erfahren</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="split split-flip" id="places">
+        <div class="wrap split-row">
+          <figure class="shot rise">
+            <img src="assets/photos/city.jpg" alt="" />
+            <span class="shot-badge"><img src="assets/icon.png" alt="" /></span>
+          </figure>
+          <div class="split-copy rise">
+            <h2 data-i18n="s2t">Geh durch die Stadt. Spar dabei.</h2>
+            <p data-i18n="s2b">
+              Die Karte zeigt Filialen und Angebote in deiner Nähe. Berlin zuerst,
+              dann weitere Städte in Deutschland. Pins sind Deals — nicht nur Orte.
+            </p>
+            <a class="btn btn-shadow" href="#app" data-i18n="learnMore">Mehr erfahren</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="split" id="online">
+        <div class="wrap split-row">
+          <figure class="shot rise">
+            <img src="assets/photos/shopping.jpg" alt="" />
+            <span class="shot-badge"><img src="assets/icon.png" alt="" /></span>
+          </figure>
+          <div class="split-copy rise">
+            <h2 data-i18n="s3t">Auch vom Sofa aus.</h2>
+            <p data-i18n="s3b">
+              Online-Shops liegen neben den Läden in derselben App. Filter auf
+              „Online“, tippe dich zum Angebot, fertig. Kein Lieferdienst von uns —
+              nur die Deals, die du im Netz sowieso suchst.
+            </p>
+            <a class="btn btn-outline" href="#app" data-i18n="learnMore">Mehr erfahren</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="split split-flip" id="partner">
+        <div class="wrap split-row">
+          <figure class="shot rise">
+            <img src="assets/photos/shop.jpg" alt="" />
+            <span class="shot-badge"><img src="assets/icon.png" alt="" /></span>
+          </figure>
+          <div class="split-copy rise">
+            <h2 data-i18n="s4t">Zeig deine Marke dort, wo Leute sparen.</h2>
+            <p data-i18n="s4b">
+              Goluto ist die Bühne für Händler: Filiale, Angebot, Sichtbarkeit bei
+              Leuten in der Straße und im Feed. Wir starten klein und ernsthaft —
+              schreib uns, wenn dein Laden oder Shop dabei sein soll.
+            </p>
+            <a class="btn btn-shadow gold" href="mailto:hello@goluto.de?subject=Goluto%20Partner" data-i18n="shopCta">Als Partner schreiben</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="join" id="app">
+        <div class="wrap">
+          <h2 class="center rise" data-i18n="joinTitle">Drei Wege, dabei zu sein</h2>
+          <div class="join-grid">
+            <article class="join-card rise">
+              <figure class="join-shot accent-a">
+                <img src="assets/photos/fashion.jpg" alt="" />
+              </figure>
+              <h3 data-i18n="j1t">Für dich</h3>
+              <p data-i18n="j1b">
+                Kostenlos Angebote finden — im Laden um die Ecke und in Online-Shops.
+                Login mit Telefon, Google oder Apple.
+              </p>
+              <a href="#download" data-i18n="learnMore">Mehr erfahren</a>
+            </article>
+            <article class="join-card rise">
+              <figure class="join-shot accent-b">
+                <img src="assets/photos/card-hand.jpg" alt="" />
+              </figure>
+              <h3 data-i18n="j2t">Für Händler</h3>
+              <p data-i18n="j2b">
+                Filiale anlegen, Deal live stellen, von Leuten in der Nähe gefunden
+                werden. Dashboard statt Flyerberg.
+              </p>
+              <a href="mailto:hello@goluto.de?subject=Goluto%20Händler" data-i18n="learnMore">Mehr erfahren</a>
+            </article>
+            <article class="join-card rise">
+              <figure class="join-shot accent-c">
+                <img src="assets/photos/office.jpg" alt="" />
+              </figure>
+              <h3 data-i18n="j3t">Mitgestalten</h3>
+              <p data-i18n="j3b">
+                Wir bauen Goluto in Deutschland auf. Wenn du mitmachen willst —
+                Produkt, Partnerschaften, oder einfach Feedback — schreib uns.
+              </p>
+              <a href="mailto:hello@goluto.de?subject=Goluto%20Team" data-i18n="learnMore">Mehr erfahren</a>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="cats" id="explore">
+        <div class="wrap">
+          <h2 class="center rise" data-i18n="catsTitle">Alltag, nur günstiger.</h2>
+          <p class="center muted rise" data-i18n="catsLede">
+            So sieht die Welt aus, in der Goluto unterwegs ist — noch ohne Live-Rabatte,
+            aber mit klarem Fokus.
+          </p>
+          <div class="cat-fan">
+            <article class="cat rise">
+              <img src="assets/photos/fashion.jpg" alt="" />
+              <span data-i18n="cat1">Mode</span>
+            </article>
+            <article class="cat rise">
+              <img src="assets/photos/grocery.jpg" alt="" />
+              <span data-i18n="cat2">Alltag</span>
+            </article>
+            <article class="cat rise">
+              <img src="assets/photos/electronics.jpg" alt="" />
+              <span data-i18n="cat3">Elektronik</span>
+            </article>
+            <article class="cat rise">
+              <img src="assets/photos/coffee.jpg" alt="" />
+              <span data-i18n="cat4">Cafés</span>
+            </article>
+            <article class="cat rise">
+              <img src="assets/photos/pastry.jpg" alt="" />
+              <span data-i18n="cat5">Genuss</span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="download" id="download">
+        <div class="wrap download-stage">
+          <div class="g-card dl-card rise" aria-hidden="true">
+            <div class="g-card-top">
+              <img src="assets/icon.png" alt="" />
+              <b>Goluto</b>
+            </div>
+            <span class="g-chip"></span>
+            <p data-i18n="cardLine">Im Laden · Online</p>
+            <small>DE · 2026</small>
+          </div>
+          <div class="download-inner">
+            <h2 class="rise" data-i18n="dlTitle">Goluto startet in Deutschland.</h2>
+            <p class="dl-sub rise" data-i18n="dlSub">Sag uns Bescheid — wir schreiben dir, wenn die App live ist.</p>
+            <form class="waitlist rise" id="waitlist">
+              <label class="sr-only" for="wait-email" data-i18n="waitLabel">E-Mail</label>
+              <input id="wait-email" name="email" type="email" required autocomplete="email" data-i18n-placeholder="waitPh" placeholder="deine@email.de" />
+              <button type="submit" data-i18n="waitBtn">Sag Bescheid</button>
+            </form>
+            <p class="avail light" data-i18n="availableOn">Verfügbar auf</p>
+            <div class="stores on-dark">
+              <a class="store is-soon" href="#" aria-disabled="true">
+                <svg class="logo-apple" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.37 12.64c-.03-2.42 1.98-3.58 2.07-3.64-1.13-1.65-2.88-1.88-3.5-1.9-1.49-.15-2.91.88-3.66.88-.76 0-1.92-.86-3.16-.83-1.62.02-3.12.95-3.96 2.4-1.69 2.93-.43 7.26 1.21 9.64.8 1.17 1.76 2.47 3.01 2.43 1.21-.05 1.67-.78 3.13-.78 1.45 0 1.87.78 3.14.75 1.3-.02 2.12-1.18 2.91-2.36.92-1.34 1.3-2.64 1.32-2.71-.03-.01-2.53-.97-2.56-3.85zm-2.4-7.08c.66-.8 1.1-1.91.98-3.02-.95.04-2.09.63-2.77 1.43-.6.7-1.13 1.83-.99 2.91 1.05.08 2.12-.54 2.78-1.32z"/></svg>
+                <span>
+                  <small data-i18n="iosTop">Laden im</small>
+                  <b>App Store</b>
+                </span>
+              </a>
+              <a class="store is-soon" href="#" aria-disabled="true">
+                <svg class="logo-play" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#34A853" d="M2.1 2.7v18.6c0 .7.7 1.1 1.2.7L14 12 3.3 2C2.8 1.7 2.1 2.1 2.1 2.7z"/>
+                  <path fill="#FBBC04" d="M17.2 8.9 14 12l3.2 3.1 3.6-2.1c1.1-.6 1.1-2.2 0-2.8l-3.6-1.3z"/>
+                  <path fill="#4285F4" d="M2.1 21.3 14 12l3.2 3.1L3.3 22c-.7.4-1.5-.1-1.2-.7z"/>
+                  <path fill="#EA4335" d="M17.2 15.1 14 12 2.1 2.7c-.3-1 .5-1.4 1.2-.7l13.9 8z"/>
+                </svg>
+                <span>
+                  <small data-i18n="playTop">Jetzt bei</small>
+                  <b>Google Play</b>
+                </span>
+              </a>
+            </div>
+          </div>
+          <div class="dl-phone rise" aria-hidden="true">
+            <div class="device">
+              <img src="assets/screen-home.png" alt="" />
             </div>
           </div>
         </div>
@@ -257,16 +433,39 @@
     </main>
 
     <footer class="footer">
-      <div class="wrap foot">
-        <span class="wordmark"><b>Go</b>luto</span>
-        <span data-i18n="footTag">Lokale Angebote. Ein Scan.</span>
-        <span>
-          <a href="impressum.html" data-i18n="imprint">Impressum</a>
-          ·
-          <a href="datenschutz.html" data-i18n="privacy">Datenschutz</a>
-        </span>
+      <div class="wrap foot-grid">
+        <div class="foot-brand">
+          <a class="brand" href="#top">
+            <img class="brand-icon" src="assets/icon.png" alt="" />
+            <span class="brand-name">Goluto</span>
+          </a>
+          <p data-i18n="footTag">Im Laden und online. Für Deutschland.</p>
+          <p class="foot-place">Berlin</p>
+        </div>
+        <div>
+          <h4 data-i18n="footLinks">Links</h4>
+          <ul>
+            <li><a href="#explore" data-i18n="navExplore">Entdecken</a></li>
+            <li><a href="#how" data-i18n="howTitle">So funktioniert’s</a></li>
+            <li><a href="#partner" data-i18n="navPartner">Partner werden</a></li>
+            <li><a href="impressum.html" data-i18n="imprint">Impressum</a></li>
+            <li><a href="datenschutz.html" data-i18n="privacy">Datenschutz</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 data-i18n="footContact">Kontakt</h4>
+          <ul>
+            <li>
+              <a href="mailto:hello@goluto.de">hello@goluto.de</a>
+            </li>
+          </ul>
+        </div>
       </div>
     </footer>
-    <script src="js/main.js?v=9"></script>
+
+    <button class="to-top" type="button" aria-label="Nach oben">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <script src="js/main.js?v=14"></script>
   </body>
 </html>
