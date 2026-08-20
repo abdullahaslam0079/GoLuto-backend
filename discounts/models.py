@@ -110,6 +110,43 @@ class Branch(models.Model):
         return f"{self.business.name} - {self.name}"
 
 
+class DealSource(models.Model):
+    class Kind(models.TextChoices):
+        BRAND_LISTING = "brand_listing", "Brand listing page"
+        AFFILIATE_FEED = "affiliate_feed", "Affiliate product feed"
+
+    business = models.ForeignKey(
+        Business, on_delete=models.CASCADE, related_name="deal_sources"
+    )
+    name = models.CharField(max_length=120, blank=True)
+    kind = models.CharField(
+        max_length=32,
+        choices=Kind.choices,
+        default=Kind.BRAND_LISTING,
+    )
+    listing_url = models.URLField(max_length=1000, blank=True)
+    feed_url = models.URLField(max_length=1000, blank=True)
+    is_enabled = models.BooleanField(default=True)
+    is_online = models.BooleanField(
+        default=True,
+        help_text="Imported offers are treated as online (view-only) when true.",
+    )
+    max_items = models.PositiveIntegerField(
+        default=80,
+        help_text="Cap product URLs/rows processed per sync run.",
+    )
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self) -> str:
+        label = self.name or self.listing_url or self.feed_url or f"Source {self.pk}"
+        return f"{self.business.name} - {label}"
+
+
 class Offer(models.Model):
     class OfferType(models.TextChoices):
         PERCENTAGE_BILL = "percentage_bill", "Percentage off entire bill"
@@ -130,6 +167,25 @@ class Offer(models.Model):
         N_TIMES_PER_WEEK = "n_times_per_week", "N times per week"
         N_TIMES_PER_MONTH = "n_times_per_month", "N times per month"
         N_TIMES_TOTAL = "n_times_total", "N times total"
+
+    class Origin(models.TextChoices):
+        MANUAL = "manual", "Manual"
+        BRAND_LISTING = "brand_listing", "Brand listing"
+        AFFILIATE_FEED = "affiliate_feed", "Affiliate feed"
+
+    class ReviewStatus(models.TextChoices):
+        PENDING = "pending", "Pending review"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    class DisabledBy(models.TextChoices):
+        SYNC = "sync", "Sync"
+        ADMIN = "admin", "Admin"
+
+    class UnavailableReason(models.TextChoices):
+        MISSING_FROM_SOURCE = "missing_from_source", "Missing from source"
+        HTTP_404 = "http_404", "Product page gone"
+        OUT_OF_STOCK = "out_of_stock", "Out of stock"
 
     business = models.ForeignKey(
         Business, on_delete=models.CASCADE, related_name="offers"
@@ -172,9 +228,50 @@ class Offer(models.Model):
     ends_at = models.DateTimeField(null=True, blank=True)
     qr_code = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    origin = models.CharField(
+        max_length=32,
+        choices=Origin.choices,
+        default=Origin.MANUAL,
+    )
+    source = models.ForeignKey(
+        "DealSource",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="offers",
+    )
+    source_url = models.URLField(max_length=1000, blank=True)
+    source_key = models.CharField(max_length=500, blank=True, db_index=True)
+    review_status = models.CharField(
+        max_length=16,
+        choices=ReviewStatus.choices,
+        default=ReviewStatus.APPROVED,
+    )
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    unavailable_reason = models.CharField(
+        max_length=32,
+        choices=UnavailableReason.choices,
+        blank=True,
+    )
+    disabled_by = models.CharField(
+        max_length=16,
+        choices=DisabledBy.choices,
+        blank=True,
+    )
 
     class Meta:
         ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["business", "source_key"],
+                condition=models.Q(source_key__gt=""),
+                name="unique_offer_source_key_per_business",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["review_status", "origin"]),
+        ]
 
     @staticmethod
     def compute_discount_percent(

@@ -10,6 +10,7 @@ from .models import (
     Branch,
     Business,
     Category,
+    DealSource,
     DeviceToken,
     Notification,
     Offer,
@@ -90,6 +91,22 @@ class BranchInline(admin.TabularInline):
     extra = 0
 
 
+class DealSourceInline(admin.TabularInline):
+    model = DealSource
+    extra = 0
+    fields = (
+        "name",
+        "kind",
+        "listing_url",
+        "feed_url",
+        "is_enabled",
+        "is_online",
+        "max_items",
+        "last_synced_at",
+    )
+    readonly_fields = ("last_synced_at",)
+
+
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ("id", "name")
@@ -101,7 +118,7 @@ class BusinessAdmin(admin.ModelAdmin):
     list_display = ("id", "name", "owner", "category")
     list_filter = ("category",)
     search_fields = ("name", "owner__email")
-    inlines = [BranchInline]
+    inlines = [BranchInline, DealSourceInline]
 
 
 @admin.register(Branch)
@@ -130,6 +147,8 @@ class OfferAdmin(admin.ModelAdmin):
         "discount_percent",
         "usage_limit_type",
         "is_enabled",
+        "origin",
+        "review_status",
         "is_time_limited",
         "has_image",
         "view_count",
@@ -141,10 +160,12 @@ class OfferAdmin(admin.ModelAdmin):
         "redemption_mode",
         "is_online",
         "is_enabled",
+        "origin",
+        "review_status",
         "is_time_limited",
         "business__category",
     )
-    search_fields = ("title", "business__name", "item_name")
+    search_fields = ("title", "business__name", "item_name", "source_url", "source_key")
     filter_horizontal = ("branches",)
     exclude = ("image",)
     inlines = [OfferGalleryImageInline]
@@ -199,6 +220,22 @@ class OfferAdmin(admin.ModelAdmin):
 
             notify_favorited_business_new_offer(offer)
             offer._notify_on_create = False
+
+
+@admin.register(DealSource)
+class DealSourceAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "name",
+        "business",
+        "kind",
+        "is_enabled",
+        "max_items",
+        "last_synced_at",
+    )
+    list_filter = ("kind", "is_enabled", "is_online")
+    search_fields = ("name", "business__name", "listing_url", "feed_url")
+    readonly_fields = ("last_synced_at", "last_error", "created_at")
 
 
 @admin.register(OfferEngagementStats)

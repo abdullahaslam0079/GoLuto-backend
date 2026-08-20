@@ -27,9 +27,10 @@ MAX_PAGE_TEXT_CHARS = 8_000
 
 
 class ProductImportError(Exception):
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str, http_status: int | None = None):
         self.code = code
         self.message = message
+        self.http_status = http_status
         super().__init__(message)
 
 
@@ -37,6 +38,7 @@ def import_product_from_url(
     url: str,
     *,
     categories: Sequence[str] | None = None,
+    enrich: bool = True,
 ) -> dict[str, Any]:
     cleaned = (url or "").strip()
     if not cleaned:
@@ -62,6 +64,9 @@ def import_product_from_url(
     draft.setdefault("suggested_discount_copy", "")
     draft["ai_enriched"] = False
 
+    if not enrich:
+        return draft
+
     page_text = _page_text_excerpt(soup)
     return enrich_product_draft(
         draft,
@@ -82,7 +87,7 @@ def _page_text_excerpt(soup: BeautifulSoup) -> str:
     return text[: MAX_PAGE_TEXT_CHARS - 1].rstrip() + "…"
 
 
-def _validate_public_http_url(url: str) -> str:
+def validate_public_http_url(url: str) -> str:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"}:
         raise ProductImportError("invalid_url", "Only http(s) URLs are supported.")
@@ -116,22 +121,20 @@ def _validate_public_http_url(url: str) -> str:
     return parsed.geturl()
 
 
-def _fetch_html(url: str) -> str:
+def fetch_public_text(url: str) -> tuple[str, int]:
     request = Request(
         url,
         headers={
             "User-Agent": USER_AGENT,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,text/csv;q=0.8,*/*;q=0.7",
             "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
         },
         method="GET",
     )
     try:
         with urlopen(request, timeout=FETCH_TIMEOUT_SECONDS) as response:
+            status_code = int(getattr(response, "status", 200) or 200)
             content_type = (response.headers.get("Content-Type") or "").lower()
-            if "html" not in content_type and "xml" not in content_type and content_type:
-                # Some CDNs omit useful content-types; still try if body looks like HTML.
-                pass
             chunks: list[bytes] = []
             total = 0
             while True:
@@ -150,18 +153,36 @@ def _fetch_html(url: str) -> str:
             if "charset=" in content_type:
                 charset = content_type.split("charset=", 1)[1].split(";")[0].strip() or "utf-8"
             try:
-                return raw.decode(charset, errors="replace")
+                text = raw.decode(charset, errors="replace")
             except LookupError:
-                return raw.decode("utf-8", errors="replace")
+                text = raw.decode("utf-8", errors="replace")
+            return text, status_code
     except ProductImportError:
         raise
     except HTTPError as exc:
+        code = int(exc.code or 0)
+        if code in {404, 410}:
+            raise ProductImportError(
+                "http_404",
+                f"Failed to fetch page (HTTP {code}).",
+                http_status=code,
+            ) from exc
         raise ProductImportError(
             "fetch_failed",
-            f"Failed to fetch page (HTTP {exc.code}).",
+            f"Failed to fetch page (HTTP {code}).",
+            http_status=code,
         ) from exc
     except (URLError, TimeoutError, OSError) as exc:
         raise ProductImportError("fetch_failed", "Failed to fetch page.") from exc
+
+
+def _fetch_html(url: str) -> str:
+    text, _status = fetch_public_text(url)
+    return text
+
+
+def _validate_public_http_url(url: str) -> str:
+    return validate_public_http_url(url)
 
 
 def _from_json_ld(soup: BeautifulSoup, page_url: str) -> dict[str, Any]:
@@ -221,14 +242,37 @@ def _from_json_ld(soup: BeautifulSoup, page_url: str) -> dict[str, Any]:
         result["confidence"]["images"] = "json_ld"
 
     if offer_node:
-        price = _parse_price(offer_node.get("price") or offer_node.get("lowPrice"))
-        if price is not None:
-            result["original_price"] = f"{price:.2f}"
+        sale_price = _parse_price(
+            offer_node.get("price") or offer_node.get("lowPrice")
+        )
+        list_price = _parse_price(
+            offer_node.get("highPrice") or offer_node.get("listPrice")
+        )
+        spec = offer_node.get("priceSpecification")
+        if isinstance(spec, list) and spec:
+            spec = spec[0]
+        if isinstance(spec, dict) and list_price is None:
+            list_price = _parse_price(spec.get("price") if spec.get("priceType") else None)
+            if list_price is None:
+                list_price = _parse_price(spec.get("listPrice") or spec.get("price"))
+        if sale_price is not None:
+            result["sale_price"] = f"{sale_price:.2f}"
+            result["original_price"] = f"{sale_price:.2f}"
             result["confidence"]["price"] = "json_ld"
+        if list_price is not None:
+            result["list_price"] = f"{list_price:.2f}"
+            if sale_price is not None and list_price > sale_price:
+                result["original_price"] = f"{list_price:.2f}"
         currency = _as_text(offer_node.get("priceCurrency"))
         if currency:
             result["currency"] = currency
             result["confidence"]["currency"] = "json_ld"
+        availability = _normalize_availability(offer_node.get("availability"))
+        if availability:
+            result["availability"] = availability
+        valid_until = _as_text(offer_node.get("priceValidUntil"))
+        if valid_until:
+            result["price_valid_until"] = valid_until
 
     return result
 
@@ -343,6 +387,10 @@ def _merge_sources(
     detailed = pick("detailed_description") or description
     original_price = pick("original_price")
     currency = pick("currency")
+    list_price = pick("list_price")
+    sale_price = pick("sale_price")
+    availability = pick("availability")
+    price_valid_until = pick("price_valid_until")
 
     image_urls: list[str] = []
     for source_name, source in (
@@ -376,7 +424,11 @@ def _merge_sources(
         "description": description or "",
         "detailed_description": detailed or "",
         "original_price": original_price,
+        "list_price": list_price,
+        "sale_price": sale_price,
         "currency": currency,
+        "availability": availability,
+        "price_valid_until": price_valid_until,
         "image_urls": image_urls,
         "external_url": source_url,
         "external_url_label": "View product",
@@ -411,6 +463,14 @@ def _is_type(node: dict[str, Any], type_name: str) -> bool:
         types = [str(raw).lower()]
     needle = type_name.lower()
     return any(needle == t or t.endswith("/" + needle) or t.endswith(":" + needle) for t in types)
+
+
+def _normalize_availability(value: Any) -> str | None:
+    text = _as_text(value)
+    if not text:
+        return None
+    lowered = text.strip().split("/")[-1].split(":")[-1]
+    return lowered or None
 
 
 def _as_text(value: Any) -> str | None:

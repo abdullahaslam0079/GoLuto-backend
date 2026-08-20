@@ -137,6 +137,21 @@ Locally you can always run: `python manage.py createsuperuser`
 
 Without `GEMINI_API_KEY`, the endpoint behaves exactly as before (scrape-only draft). AI never overwrites high-confidence scraped fields and never creates an offer.
 
+### Brand listing / affiliate offer sync
+
+Attach a **deal source** to a business (sale page URL or affiliate CSV/XML feed). Sync imports new products into a review queue (`is_enabled=false`). After you approve, later syncs refresh prices and **disable** offers that disappeared, 404, or are out of stock. Manual offers are never changed.
+
+Admin: `POST /api/admin/deal-sources/<id>/sync` (Sync now in the admin web app).
+
+Scheduled (optional, no Celery):
+
+```bash
+python manage.py sync_deal_sources
+python manage.py sync_deal_sources --source-id 12
+```
+
+Hook that command to a Render Cron job or GitHub Action when you want nightly refresh. Bulk sync skips Gemini to keep runs cheap.
+
 **Render:** In the web service **Settings**, check **Start Command**. If it was set manually, it overrides `render.yaml` and must be:
 
 `python manage.py migrate --noinput && python manage.py ensure_superuser && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`

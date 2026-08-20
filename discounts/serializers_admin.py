@@ -5,7 +5,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Branch, Business, Category, Offer, OfferViewEvent
+from .models import Branch, Business, Category, DealSource, Offer, OfferViewEvent
 from .serializers_business import (
     BranchSerializer,
     BusinessOfferSerializer,
@@ -223,12 +223,22 @@ class AdminOfferSerializer(BusinessOfferSerializer):
     unique_viewers = serializers.SerializerMethodField(
         help_text="Distinct authenticated users who opened this offer at least once.",
     )
+    source_id = serializers.IntegerField(read_only=True, allow_null=True)
 
     class Meta(BusinessOfferSerializer.Meta):
         fields = BusinessOfferSerializer.Meta.fields + [
             "business_id",
             "business_name",
             "unique_viewers",
+            "origin",
+            "source_id",
+            "source_url",
+            "source_key",
+            "review_status",
+            "last_seen_at",
+            "last_synced_at",
+            "unavailable_reason",
+            "disabled_by",
         ]
         read_only_fields = list(
             getattr(BusinessOfferSerializer.Meta, "read_only_fields", [])
@@ -237,6 +247,15 @@ class AdminOfferSerializer(BusinessOfferSerializer):
             "view_count",
             "like_count",
             "unique_viewers",
+            "origin",
+            "source_id",
+            "source_url",
+            "source_key",
+            "review_status",
+            "last_seen_at",
+            "last_synced_at",
+            "unavailable_reason",
+            "disabled_by",
         ]
 
     @extend_schema_field(OpenApiTypes.INT)
@@ -315,4 +334,80 @@ class AdminOfferSerializer(BusinessOfferSerializer):
     def update(self, instance, validated_data):
         validated_data.pop("business", None)
         self.context["business"] = instance.business
+        if "is_enabled" in validated_data:
+            if validated_data["is_enabled"]:
+                validated_data["disabled_by"] = ""
+                validated_data["unavailable_reason"] = ""
+                if instance.review_status == Offer.ReviewStatus.PENDING:
+                    validated_data["review_status"] = Offer.ReviewStatus.APPROVED
+            elif instance.is_enabled:
+                validated_data["disabled_by"] = Offer.DisabledBy.ADMIN
         return super().update(instance, validated_data)
+
+
+class AdminDealSourceSerializer(serializers.ModelSerializer):
+    business_id = serializers.IntegerField(read_only=True)
+    business_name = serializers.CharField(source="business.name", read_only=True)
+
+    class Meta:
+        model = DealSource
+        fields = [
+            "id",
+            "business_id",
+            "business_name",
+            "name",
+            "kind",
+            "listing_url",
+            "feed_url",
+            "is_enabled",
+            "is_online",
+            "max_items",
+            "last_synced_at",
+            "last_error",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "business_id",
+            "business_name",
+            "last_synced_at",
+            "last_error",
+            "created_at",
+        ]
+
+    def validate_max_items(self, value: int) -> int:
+        if value < 1:
+            raise serializers.ValidationError("max_items must be at least 1.")
+        if value > 500:
+            raise serializers.ValidationError("max_items cannot exceed 500.")
+        return value
+
+    def validate(self, attrs):
+        kind = attrs.get("kind", getattr(self.instance, "kind", DealSource.Kind.BRAND_LISTING))
+        listing_url = attrs.get(
+            "listing_url", getattr(self.instance, "listing_url", "") if self.instance else ""
+        )
+        feed_url = attrs.get(
+            "feed_url", getattr(self.instance, "feed_url", "") if self.instance else ""
+        )
+        if kind == DealSource.Kind.BRAND_LISTING and not (listing_url or "").strip():
+            raise serializers.ValidationError(
+                {"listing_url": "Listing URL is required for brand listing sources."}
+            )
+        if kind == DealSource.Kind.AFFILIATE_FEED and not (feed_url or "").strip():
+            raise serializers.ValidationError(
+                {"feed_url": "Feed URL is required for affiliate sources."}
+            )
+        name = attrs.get("name")
+        if name is None:
+            name = getattr(self.instance, "name", "") if self.instance else ""
+        if not (name or "").strip():
+            from .offer_sync import default_source_name
+
+            url = listing_url or feed_url
+            attrs["name"] = default_source_name(url) or "Deal source"
+        return attrs
+
+    def create(self, validated_data):
+        business = self.context["business"]
+        return DealSource.objects.create(business=business, **validated_data)

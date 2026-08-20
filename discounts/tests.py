@@ -1361,3 +1361,547 @@ class PhoneAuthAPITests(APITestCase):
         user = User.objects.get(firebase_uid="apple-uid-1")
         self.assertTrue(user.email.endswith("@firebase.goluto.local"))
         self.assertFalse(user.has_usable_password())
+
+
+class ListingDiscoverTests(TestCase):
+    def test_item_list_json_ld(self):
+        from unittest.mock import patch
+
+        from .listing_discover import discover_product_urls_from_listing
+
+        html = """
+        <html><head>
+          <script type="application/ld+json">
+          {
+            "@type": "ItemList",
+            "itemListElement": [
+              {"@type": "ListItem", "url": "https://shop.example.com/p/one"},
+              {"@type": "ListItem", "item": {"@type": "Product", "url": "https://shop.example.com/p/two"}}
+            ]
+          }
+          </script>
+        </head><body></body></html>
+        """
+        with patch(
+            "discounts.listing_discover.validate_public_http_url",
+            return_value="https://shop.example.com/sale",
+        ):
+            with patch(
+                "discounts.listing_discover.fetch_public_text",
+                return_value=(html, 200),
+            ):
+                urls = discover_product_urls_from_listing(
+                    "https://shop.example.com/sale", limit=10
+                )
+        self.assertEqual(
+            urls,
+            [
+                "https://shop.example.com/p/one",
+                "https://shop.example.com/p/two",
+            ],
+        )
+
+    def test_anchor_fallback(self):
+        from unittest.mock import patch
+
+        from .listing_discover import discover_product_urls_from_listing
+
+        html = """
+        <html><body>
+          <a href="/login">Login</a>
+          <a href="/p/red-mug-123">Red mug</a>
+          <a href="https://other.example.com/p/skip">Other shop</a>
+        </body></html>
+        """
+        with patch(
+            "discounts.listing_discover.validate_public_http_url",
+            return_value="https://shop.example.com/sale",
+        ):
+            with patch(
+                "discounts.listing_discover.fetch_public_text",
+                return_value=(html, 200),
+            ):
+                urls = discover_product_urls_from_listing(
+                    "https://shop.example.com/sale", limit=10
+                )
+        self.assertEqual(urls, ["https://shop.example.com/p/red-mug-123"])
+
+
+class AffiliateFeedTests(TestCase):
+    def test_csv_rows(self):
+        from unittest.mock import patch
+
+        from .affiliate_feed import parse_affiliate_feed
+
+        csv_text = (
+            "id,title,price,sale_price,link,image\n"
+            "abc,Coffee,10.00,7.00,https://shop.example.com/p/coffee,https://cdn.example.com/c.jpg\n"
+        )
+        with patch(
+            "discounts.affiliate_feed.validate_public_http_url",
+            return_value="https://feeds.example.com/products.csv",
+        ):
+            with patch(
+                "discounts.affiliate_feed.fetch_public_text",
+                return_value=(csv_text, 200),
+            ):
+                deals = parse_affiliate_feed("https://feeds.example.com/products.csv")
+        self.assertEqual(len(deals), 1)
+        self.assertEqual(deals[0].source_key, "feed:abc")
+        self.assertEqual(deals[0].title, "Coffee")
+        self.assertEqual(deals[0].original_price, "10.00")
+        self.assertEqual(deals[0].discounted_price, "7.00")
+
+
+class OfferSyncTests(TestCase):
+    def setUp(self):
+        from .models import DealSource
+
+        self.owner = User.objects.create_user(
+            email="sync-owner@example.com",
+            password="testpass123",
+            account_type=User.AccountType.BUSINESS,
+        )
+        self.category = Category.objects.create(name="Retail")
+        self.business = Business.objects.create(
+            owner=self.owner,
+            name="Sync Shop",
+            category=self.category,
+        )
+        self.source = DealSource.objects.create(
+            business=self.business,
+            name="Sale page",
+            kind=DealSource.Kind.BRAND_LISTING,
+            listing_url="https://shop.example.com/sale",
+            max_items=10,
+        )
+
+    def _deal(self, key="https://shop.example.com/p/coffee", url=None, **kwargs):
+        from .affiliate_feed import DiscoveredDeal
+
+        return DiscoveredDeal(
+            source_key=key,
+            source_url=url or key,
+            **kwargs,
+        )
+
+    def test_creates_pending_disabled_offer(self):
+        from unittest.mock import patch
+
+        from .models import Offer
+        from .offer_sync import sync_deal_source
+
+        draft = {
+            "title": "Coffee beans",
+            "description": "Dark roast",
+            "detailed_description": "Dark roast 1kg",
+            "original_price": "12.00",
+            "list_price": "12.00",
+            "sale_price": "9.00",
+            "image_urls": ["https://cdn.example.com/coffee.jpg"],
+            "external_url": "https://shop.example.com/p/coffee",
+            "availability": "InStock",
+            "suggested_discount_percent": None,
+        }
+        with patch(
+            "discounts.offer_sync._discover",
+            return_value=[self._deal()],
+        ):
+            with patch(
+                "discounts.offer_sync.import_product_from_url",
+                return_value=draft,
+            ):
+                result = sync_deal_source(self.source)
+        self.assertEqual(result.created, 1)
+        offer = Offer.objects.get(source_key="https://shop.example.com/p/coffee")
+        self.assertFalse(offer.is_enabled)
+        self.assertEqual(offer.review_status, Offer.ReviewStatus.PENDING)
+        self.assertEqual(offer.origin, Offer.Origin.BRAND_LISTING)
+        self.assertEqual(offer.offer_type, Offer.OfferType.ITEM)
+        self.assertEqual(str(offer.discounted_price), "9.00")
+
+    def test_skips_rejected_and_manual(self):
+        from unittest.mock import patch
+
+        from .models import Offer
+        from .offer_sync import sync_deal_source
+
+        Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Manual coffee",
+            discount_percent=Decimal("10.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+            origin=Offer.Origin.MANUAL,
+            source_url="https://shop.example.com/p/manual",
+            source_key="https://shop.example.com/p/manual",
+        )
+        Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Rejected coffee",
+            discount_percent=Decimal("10.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+            origin=Offer.Origin.BRAND_LISTING,
+            source=self.source,
+            review_status=Offer.ReviewStatus.REJECTED,
+            is_enabled=False,
+            source_url="https://shop.example.com/p/rejected",
+            source_key="https://shop.example.com/p/rejected",
+        )
+        draft = {
+            "title": "Should not apply",
+            "description": "",
+            "detailed_description": "",
+            "original_price": "5.00",
+            "image_urls": [],
+            "external_url": "https://shop.example.com/p/x",
+        }
+        with patch(
+            "discounts.offer_sync._discover",
+            return_value=[
+                self._deal("https://shop.example.com/p/manual"),
+                self._deal("https://shop.example.com/p/rejected"),
+            ],
+        ):
+            with patch(
+                "discounts.offer_sync.import_product_from_url",
+                return_value=draft,
+            ):
+                result = sync_deal_source(self.source)
+        self.assertEqual(result.skipped_manual, 1)
+        self.assertEqual(result.skipped_rejected, 1)
+        self.assertEqual(result.created, 0)
+        self.assertEqual(
+            Offer.objects.get(source_key="https://shop.example.com/p/manual").title,
+            "Manual coffee",
+        )
+
+    def test_disables_missing_approved_not_manual(self):
+        from unittest.mock import patch
+
+        from .models import Offer
+        from .offer_sync import sync_deal_source
+
+        keep = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Still on sale",
+            discount_percent=Decimal("10.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+            origin=Offer.Origin.BRAND_LISTING,
+            source=self.source,
+            review_status=Offer.ReviewStatus.APPROVED,
+            is_enabled=True,
+            is_online=True,
+            source_url="https://shop.example.com/p/keep",
+            source_key="https://shop.example.com/p/keep",
+        )
+        gone = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Gone",
+            discount_percent=Decimal("10.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+            origin=Offer.Origin.BRAND_LISTING,
+            source=self.source,
+            review_status=Offer.ReviewStatus.APPROVED,
+            is_enabled=True,
+            is_online=True,
+            source_url="https://shop.example.com/p/gone",
+            source_key="https://shop.example.com/p/gone",
+        )
+        draft = {
+            "title": "Still on sale",
+            "description": "",
+            "detailed_description": "",
+            "original_price": "8.00",
+            "image_urls": [],
+            "external_url": "https://shop.example.com/p/keep",
+            "availability": "InStock",
+        }
+        with patch(
+            "discounts.offer_sync._discover",
+            return_value=[self._deal("https://shop.example.com/p/keep")],
+        ):
+            with patch(
+                "discounts.offer_sync.import_product_from_url",
+                return_value=draft,
+            ):
+                result = sync_deal_source(self.source)
+        keep.refresh_from_db()
+        gone.refresh_from_db()
+        self.assertEqual(result.disabled_missing, 1)
+        self.assertTrue(keep.is_enabled)
+        self.assertFalse(gone.is_enabled)
+        self.assertEqual(gone.disabled_by, Offer.DisabledBy.SYNC)
+        self.assertEqual(
+            gone.unavailable_reason, Offer.UnavailableReason.MISSING_FROM_SOURCE
+        )
+
+    def test_http_404_disables_and_admin_pause_is_kept(self):
+        from unittest.mock import patch
+
+        from .models import Offer
+        from .offer_sync import sync_deal_source
+        from .product_import import ProductImportError
+
+        live = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Live",
+            discount_percent=Decimal("10.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+            origin=Offer.Origin.BRAND_LISTING,
+            source=self.source,
+            review_status=Offer.ReviewStatus.APPROVED,
+            is_enabled=True,
+            is_online=True,
+            source_url="https://shop.example.com/p/live",
+            source_key="https://shop.example.com/p/live",
+        )
+        paused = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Paused by admin",
+            discount_percent=Decimal("10.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+            origin=Offer.Origin.BRAND_LISTING,
+            source=self.source,
+            review_status=Offer.ReviewStatus.APPROVED,
+            is_enabled=False,
+            disabled_by=Offer.DisabledBy.ADMIN,
+            is_online=True,
+            source_url="https://shop.example.com/p/paused",
+            source_key="https://shop.example.com/p/paused",
+        )
+
+        def fake_import(url, enrich=False):
+            if "live" in url:
+                raise ProductImportError("http_404", "gone", http_status=404)
+            return {
+                "title": "Paused by admin",
+                "description": "",
+                "detailed_description": "",
+                "original_price": "8.00",
+                "image_urls": [],
+                "external_url": url,
+                "availability": "InStock",
+            }
+
+        with patch(
+            "discounts.offer_sync._discover",
+            return_value=[
+                self._deal("https://shop.example.com/p/live"),
+                self._deal("https://shop.example.com/p/paused"),
+            ],
+        ):
+            with patch(
+                "discounts.offer_sync.import_product_from_url",
+                side_effect=fake_import,
+            ):
+                sync_deal_source(self.source)
+        live.refresh_from_db()
+        paused.refresh_from_db()
+        self.assertFalse(live.is_enabled)
+        self.assertEqual(live.unavailable_reason, Offer.UnavailableReason.HTTP_404)
+        self.assertEqual(live.disabled_by, Offer.DisabledBy.SYNC)
+        self.assertFalse(paused.is_enabled)
+        self.assertEqual(paused.disabled_by, Offer.DisabledBy.ADMIN)
+
+    def test_restock_reenables_sync_disabled_only(self):
+        from unittest.mock import patch
+
+        from .models import Offer
+        from .offer_sync import sync_deal_source
+
+        offer = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Was OOS",
+            discount_percent=Decimal("10.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+            origin=Offer.Origin.BRAND_LISTING,
+            source=self.source,
+            review_status=Offer.ReviewStatus.APPROVED,
+            is_enabled=False,
+            disabled_by=Offer.DisabledBy.SYNC,
+            unavailable_reason=Offer.UnavailableReason.OUT_OF_STOCK,
+            is_online=True,
+            source_url="https://shop.example.com/p/beans",
+            source_key="https://shop.example.com/p/beans",
+        )
+        draft = {
+            "title": "Was OOS",
+            "description": "",
+            "detailed_description": "",
+            "original_price": "8.00",
+            "image_urls": [],
+            "external_url": "https://shop.example.com/p/beans",
+            "availability": "InStock",
+        }
+        with patch(
+            "discounts.offer_sync._discover",
+            return_value=[self._deal("https://shop.example.com/p/beans")],
+        ):
+            with patch(
+                "discounts.offer_sync.import_product_from_url",
+                return_value=draft,
+            ):
+                result = sync_deal_source(self.source)
+        offer.refresh_from_db()
+        self.assertEqual(result.reenabled, 1)
+        self.assertTrue(offer.is_enabled)
+        self.assertEqual(offer.disabled_by, "")
+        self.assertEqual(offer.unavailable_reason, "")
+
+    def test_enrich_false_skips_gemini(self):
+        from django.test import override_settings
+        from unittest.mock import patch
+
+        from .product_import import import_product_from_url
+
+        html = """
+        <html><head>
+          <title>Sparse Coffee Deal</title>
+          <meta property="og:image" content="https://cdn.example.com/coffee.jpg" />
+        </head><body></body></html>
+        """
+        with override_settings(GEMINI_API_KEY="test-key"):
+            with patch(
+                "discounts.product_import._validate_public_http_url",
+                return_value="https://example.com/sparse",
+            ):
+                with patch("discounts.product_import._fetch_html", return_value=html):
+                    with patch("discounts.ai_enrichment._call_gemini") as gemini:
+                        draft = import_product_from_url(
+                            "https://example.com/sparse", enrich=False
+                        )
+        gemini.assert_not_called()
+        self.assertFalse(draft["ai_enriched"])
+        self.assertEqual(draft["title"], "Sparse Coffee Deal")
+
+
+class DealSourceAdminAPITests(APITestCase):
+    def setUp(self):
+        from .models import DealSource
+
+        self.admin = User.objects.create_user(
+            email="sync-admin@example.com",
+            password="testpass123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.owner = User.objects.create_user(
+            email="biz-owner@example.com",
+            password="testpass123",
+            account_type=User.AccountType.BUSINESS,
+        )
+        self.category = Category.objects.create(name="Fashion")
+        self.business = Business.objects.create(
+            owner=self.owner,
+            name="Fashion Shop",
+            category=self.category,
+        )
+        self.source = DealSource.objects.create(
+            business=self.business,
+            name="Sale",
+            kind=DealSource.Kind.BRAND_LISTING,
+            listing_url="https://shop.example.com/sale",
+        )
+        self.pending = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Pending import",
+            discount_percent=Decimal("15.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+            origin=Offer.Origin.BRAND_LISTING,
+            source=self.source,
+            review_status=Offer.ReviewStatus.PENDING,
+            is_enabled=False,
+            is_online=True,
+            source_url="https://shop.example.com/p/pending",
+            source_key="https://shop.example.com/p/pending",
+        )
+
+    def test_create_source_and_filter_review_queue(self):
+        self.client.force_authenticate(user=self.admin)
+        created = self.client.post(
+            f"/api/admin/businesses/{self.business.id}/deal-sources",
+            {
+                "kind": "affiliate_feed",
+                "feed_url": "https://feeds.example.com/awin.csv",
+                "max_items": 20,
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        self.assertEqual(created.data["kind"], "affiliate_feed")
+        listed = self.client.get(
+            "/api/admin/offers", {"review_status": "pending"}, format="json"
+        )
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        titles = [row["title"] for row in listed.data["results"]]
+        self.assertIn("Pending import", titles)
+
+    def test_approve_and_reject(self):
+        self.client.force_authenticate(user=self.admin)
+        approved = self.client.post(f"/api/admin/offers/{self.pending.id}/approve")
+        self.assertEqual(approved.status_code, status.HTTP_200_OK, approved.data)
+        self.pending.refresh_from_db()
+        self.assertEqual(self.pending.review_status, Offer.ReviewStatus.APPROVED)
+        self.assertTrue(self.pending.is_enabled)
+
+        other = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Reject me",
+            discount_percent=Decimal("10.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+            origin=Offer.Origin.BRAND_LISTING,
+            source=self.source,
+            review_status=Offer.ReviewStatus.PENDING,
+            is_enabled=False,
+            is_online=True,
+            source_key="https://shop.example.com/p/reject",
+        )
+        rejected = self.client.post(f"/api/admin/offers/{other.id}/reject")
+        self.assertEqual(rejected.status_code, status.HTTP_200_OK)
+        other.refresh_from_db()
+        self.assertEqual(other.review_status, Offer.ReviewStatus.REJECTED)
+        self.assertFalse(other.is_enabled)
+
+    def test_bulk_approve_and_sync_endpoint(self):
+        from unittest.mock import patch
+
+        from .offer_sync import SyncResult
+
+        self.client.force_authenticate(user=self.admin)
+        extra = Offer.objects.create(
+            business=self.business,
+            offer_type=Offer.OfferType.PERCENTAGE_BILL,
+            title="Also pending",
+            discount_percent=Decimal("10.00"),
+            usage_limit_type=Offer.UsageLimitType.ONE_TIME,
+            origin=Offer.Origin.BRAND_LISTING,
+            source=self.source,
+            review_status=Offer.ReviewStatus.PENDING,
+            is_enabled=False,
+            is_online=True,
+            source_key="https://shop.example.com/p/also",
+        )
+        bulk = self.client.post(
+            "/api/admin/offers/bulk-approve",
+            {"ids": [self.pending.id, extra.id]},
+            format="json",
+        )
+        self.assertEqual(bulk.status_code, status.HTTP_200_OK, bulk.data)
+        self.assertEqual(bulk.data["approved"], 2)
+        with patch(
+            "discounts.views_admin.sync_deal_source",
+            return_value=SyncResult(discovered=2, created=1),
+        ) as mocked:
+            synced = self.client.post(f"/api/admin/deal-sources/{self.source.id}/sync")
+        self.assertEqual(synced.status_code, status.HTTP_200_OK, synced.data)
+        mocked.assert_called_once()
+        self.assertEqual(synced.data["result"]["created"], 1)

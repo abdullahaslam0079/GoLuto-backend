@@ -19,6 +19,7 @@ from .models import (
     Business,
     BusinessEngagementStats,
     Category,
+    DealSource,
     Offer,
     OfferBranchStats,
     OfferEngagementStats,
@@ -27,6 +28,7 @@ from .models import (
     OfferViewEvent,
 )
 from .notification_utils import notify_favorited_business_new_offer
+from .offer_sync import sync_deal_source
 from .offer_utils import branch_highlight_queryset
 from .permissions import IsAdminAccount
 from .product_import import ProductImportError, import_product_from_url
@@ -35,6 +37,7 @@ from .serializers_admin import (
     AdminBusinessCreateSerializer,
     AdminBusinessSerializer,
     AdminCategorySerializer,
+    AdminDealSourceSerializer,
     AdminLoginTokenObtainPairSerializer,
     AdminOfferSerializer,
     AdminProfileSerializer,
@@ -507,6 +510,20 @@ class AdminOfferListCreateAPIView(APIView):
                 qs = qs.filter(is_enabled=True)
             elif is_enabled.lower() in ("0", "false", "no"):
                 qs = qs.filter(is_enabled=False)
+        review_status = (request.query_params.get("review_status") or "").strip()
+        if review_status in {
+            Offer.ReviewStatus.PENDING,
+            Offer.ReviewStatus.APPROVED,
+            Offer.ReviewStatus.REJECTED,
+        }:
+            qs = qs.filter(review_status=review_status)
+        origin = (request.query_params.get("origin") or "").strip()
+        if origin in {
+            Offer.Origin.MANUAL,
+            Offer.Origin.BRAND_LISTING,
+            Offer.Origin.AFFILIATE_FEED,
+        }:
+            qs = qs.filter(origin=origin)
         return _paginate(qs, request, AdminOfferSerializer)
 
     def post(self, request):
@@ -679,6 +696,229 @@ class AdminOfferDetailAPIView(APIView):
         return Response(
             {"message": "Offer deleted successfully.", "errors": {}},
             status=status.HTTP_200_OK,
+        )
+
+
+def _admin_offer_payload(offer: Offer, request) -> dict:
+    return AdminOfferSerializer(
+        offer, context={"request": request, "business": offer.business}
+    ).data
+
+
+class AdminOfferApproveAPIView(APIView):
+    permission_classes = [IsAdminAccount]
+
+    def post(self, request, offer_id: int):
+        offer = get_object_or_404(Offer, pk=offer_id)
+        if offer.review_status == Offer.ReviewStatus.REJECTED:
+            return Response(
+                {
+                    "message": "Rejected offers cannot be approved. Create a new import instead.",
+                    "errors": {"review_status": ["This offer was rejected."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        was_pending = offer.review_status == Offer.ReviewStatus.PENDING
+        offer.review_status = Offer.ReviewStatus.APPROVED
+        offer.is_enabled = True
+        offer.disabled_by = ""
+        offer.unavailable_reason = ""
+        offer.save(
+            update_fields=[
+                "review_status",
+                "is_enabled",
+                "disabled_by",
+                "unavailable_reason",
+            ]
+        )
+        if was_pending:
+            notify_favorited_business_new_offer(offer)
+        return Response(
+            {
+                "message": "Offer approved.",
+                "errors": {},
+                **_admin_offer_payload(offer, request),
+            }
+        )
+
+
+class AdminOfferRejectAPIView(APIView):
+    permission_classes = [IsAdminAccount]
+
+    def post(self, request, offer_id: int):
+        offer = get_object_or_404(Offer, pk=offer_id)
+        if offer.origin == Offer.Origin.MANUAL:
+            return Response(
+                {
+                    "message": "Manual offers cannot be rejected from the review queue.",
+                    "errors": {"origin": ["Only imported offers can be rejected."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        offer.review_status = Offer.ReviewStatus.REJECTED
+        offer.is_enabled = False
+        offer.disabled_by = Offer.DisabledBy.ADMIN
+        offer.save(update_fields=["review_status", "is_enabled", "disabled_by"])
+        return Response(
+            {
+                "message": "Offer rejected.",
+                "errors": {},
+                **_admin_offer_payload(offer, request),
+            }
+        )
+
+
+class AdminOfferBulkApproveAPIView(APIView):
+    permission_classes = [IsAdminAccount]
+
+    def post(self, request):
+        raw_ids = request.data.get("ids") or request.data.get("offer_ids") or []
+        if not isinstance(raw_ids, list) or not raw_ids:
+            return Response(
+                {
+                    "message": "Provide a list of offer ids.",
+                    "errors": {"ids": ["This field is required."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ids = []
+        for item in raw_ids:
+            try:
+                ids.append(int(item))
+            except (TypeError, ValueError):
+                continue
+        offers = list(
+            Offer.objects.filter(pk__in=ids).exclude(
+                review_status=Offer.ReviewStatus.REJECTED
+            )
+        )
+        approved = 0
+        for offer in offers:
+            was_pending = offer.review_status == Offer.ReviewStatus.PENDING
+            offer.review_status = Offer.ReviewStatus.APPROVED
+            offer.is_enabled = True
+            offer.disabled_by = ""
+            offer.unavailable_reason = ""
+            offer.save(
+                update_fields=[
+                    "review_status",
+                    "is_enabled",
+                    "disabled_by",
+                    "unavailable_reason",
+                ]
+            )
+            if was_pending:
+                notify_favorited_business_new_offer(offer)
+            approved += 1
+        return Response(
+            {
+                "message": f"Approved {approved} offer(s).",
+                "errors": {},
+                "approved": approved,
+            }
+        )
+
+
+class AdminBusinessDealSourceListCreateAPIView(APIView):
+    permission_classes = [IsAdminAccount]
+
+    def get_business(self, business_id: int) -> Business:
+        return get_object_or_404(Business, pk=business_id)
+
+    def get(self, request, business_id: int):
+        business = self.get_business(business_id)
+        qs = business.deal_sources.all().order_by("name", "id")
+        serializer = AdminDealSourceSerializer(
+            qs, many=True, context={"request": request, "business": business}
+        )
+        return Response(serializer.data)
+
+    def post(self, request, business_id: int):
+        business = self.get_business(business_id)
+        serializer = AdminDealSourceSerializer(
+            data=request.data, context={"request": request, "business": business}
+        )
+        serializer.is_valid(raise_exception=True)
+        source = serializer.save()
+        return Response(
+            {
+                "message": "Deal source created.",
+                "errors": {},
+                **AdminDealSourceSerializer(
+                    source, context={"request": request, "business": business}
+                ).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AdminDealSourceDetailAPIView(APIView):
+    permission_classes = [IsAdminAccount]
+
+    def get_object(self, source_id: int) -> DealSource:
+        return get_object_or_404(DealSource.objects.select_related("business"), pk=source_id)
+
+    def get(self, request, source_id: int):
+        source = self.get_object(source_id)
+        return Response(
+            AdminDealSourceSerializer(
+                source, context={"request": request, "business": source.business}
+            ).data
+        )
+
+    def patch(self, request, source_id: int):
+        return self._update(request, source_id, partial=True)
+
+    def put(self, request, source_id: int):
+        return self._update(request, source_id, partial=False)
+
+    def _update(self, request, source_id: int, partial: bool):
+        source = self.get_object(source_id)
+        serializer = AdminDealSourceSerializer(
+            source,
+            data=request.data,
+            partial=partial,
+            context={"request": request, "business": source.business},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {
+                "message": "Deal source updated.",
+                "errors": {},
+                **AdminDealSourceSerializer(
+                    source, context={"request": request, "business": source.business}
+                ).data,
+            }
+        )
+
+    def delete(self, request, source_id: int):
+        source = self.get_object(source_id)
+        source.delete()
+        return Response(
+            {"message": "Deal source deleted.", "errors": {}},
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminDealSourceSyncAPIView(APIView):
+    permission_classes = [IsAdminAccount]
+
+    def post(self, request, source_id: int):
+        source = get_object_or_404(
+            DealSource.objects.select_related("business"), pk=source_id
+        )
+        result = sync_deal_source(source)
+        source.refresh_from_db()
+        return Response(
+            {
+                "message": "Deal source synced.",
+                "errors": {},
+                "result": result.as_dict(),
+                "source": AdminDealSourceSerializer(
+                    source, context={"request": request, "business": source.business}
+                ).data,
+            }
         )
 
 
