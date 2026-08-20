@@ -69,10 +69,19 @@ if os.environ.get("CORS_ALLOWED_ORIGINS", "").strip():
 else:
     CORS_ALLOWED_ORIGINS = []
 
-# Flutter web dev server runs on random localhost ports.
+for origin in (
+    "https://goluto.de",
+    "https://www.goluto.de",
+    "https://goluto-web.vercel.app",
+):
+    if origin not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(origin)
+
+# Flutter web / Next.js local, plus Vercel preview URLs.
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http://localhost:\d+$",
     r"^http://127\.0\.0\.1:\d+$",
+    r"^https://goluto-web[\w.-]*\.vercel\.app$",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
